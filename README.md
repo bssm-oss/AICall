@@ -23,6 +23,8 @@ The app gives a user one place to:
 - Local TTS using Android `TextToSpeech`
 - Codex-compatible backend configuration using a backend URL and short-lived session token
 - Local fallback reply when the backend is not configured
+- Persistent assistant exchange history with an in-app clear action
+- Optional automatic speaking of newly generated AI replies
 
 ## Tech stack
 
@@ -113,7 +115,8 @@ export JAVA_HOME="/Users/heodongun/Library/Java/JavaVirtualMachines/corretto-17.
 2. Review the latest call/screening state on the home screen.
 3. Optionally grant microphone permission.
 4. Use the speech assistant demo to capture speech, generate a reply, and speak it aloud.
-5. Configure the backend URL/session token when a Codex-backed service is available.
+5. Review recent assistant exchanges and optionally let the app auto-speak newly generated replies.
+6. Configure the backend URL/session token when a Codex-backed service is available.
 
 ## Project structure
 
@@ -139,6 +142,7 @@ docs/
 - `CompanionInCallService` and `CompanionCallScreeningService` are the Android Telecom integration points.
 - `SpeechRecognizerManager` and `TextToSpeechManager` own the device speech integrations.
 - `AssistantCoordinator` calls a backend when configured, otherwise falls back to a local demo reply.
+- `AssistantSessionRepository` keeps recent caller/reply exchanges so the assistant flow survives app restarts.
 
 ## Development principles
 
@@ -161,6 +165,7 @@ GitHub Actions runs unit tests, lint, and a debug assemble on pull requests and 
 
 - The repository has emulator smoke evidence for app install and main-screen launch, but it does not yet have a validated incoming-call scenario for telecom behavior.
 - Recent Telecom history is only as rich as the Telecom events the device actually delivers to the app.
+- Assistant history reflects generated exchanges, not live carrier-call audio transcription.
 - The app does not transcribe or inject audio directly into carrier-call media.
 - The Codex/OpenAI path depends on a backend not included in this repository.
 

@@ -42,6 +42,10 @@ Owns Android `TextToSpeech` and speaks the latest generated reply when the user 
 
 Calls a backend when a base URL and short-lived session token are configured. Otherwise, it returns a local fallback reply so the demo flow still works.
 
+### AssistantSessionRepository
+
+Persists recent caller/reply exchanges in shared preferences so the user can reopen the app and still review what the assistant previously generated.
+
 ## Data flow
 
 1. `MainActivity` renders `MainUiState` from `MainViewModel`.
@@ -49,13 +53,15 @@ Calls a backend when a base URL and short-lived session token are configured. Ot
 3. Telecom services update `TelecomEventStore`.
 4. `TelecomEventStore` persists recent events through `TelecomHistoryRepository`.
 5. The assistant flow sends caller text to `AssistantCoordinator`.
-6. The reply is surfaced in the UI and optionally spoken locally.
+6. The generated exchange is persisted through `AssistantSessionRepository`.
+7. The reply is surfaced in the UI and optionally spoken locally or automatically when auto-speak is enabled.
 
 ## Security posture
 
 - The app stores only a backend session token, not a long-lived provider secret.
 - Codex/OpenAI authentication belongs on the backend.
 - The app’s local fallback reply makes the unsupported/unconfigured state obvious.
+- Assistant and Telecom histories are stored locally on-device for the user’s convenience.
 
 ## Known architectural limits
 
