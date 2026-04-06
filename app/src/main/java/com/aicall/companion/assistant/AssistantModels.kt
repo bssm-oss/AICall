@@ -8,6 +8,15 @@ data class AssistantSettings(
     val backendSessionToken: String = "",
     val systemPrompt: String = DEFAULT_SYSTEM_PROMPT,
     val silenceNumberSuffix: String = "0000",
+    val autoSpeakReplies: Boolean = false,
+)
+
+@Serializable
+data class AssistantExchange(
+    val timestampLabel: String,
+    val callerText: String,
+    val replyText: String,
+    val source: String,
 )
 
 data class AssistantResponse(

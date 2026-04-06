@@ -5,7 +5,9 @@ import android.app.role.RoleManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.aicall.companion.assistant.AssistantCoordinator
+import com.aicall.companion.assistant.AssistantExchange
 import com.aicall.companion.assistant.AssistantSettings
+import com.aicall.companion.assistant.AssistantSessionRepository
 import com.aicall.companion.assistant.AssistantSettingsRepository
 import com.aicall.companion.speech.SpeechRecognizerManager
 import com.aicall.companion.speech.SpeechUiState
@@ -18,6 +20,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 data class MainUiState(
     val settings: AssistantSettings,
@@ -30,11 +34,20 @@ data class MainUiState(
     val hasDialerRole: Boolean,
     val canRequestDialerRole: Boolean,
     val canAnswerCalls: Boolean,
+    val assistantHistory: List<AssistantExchange> = emptyList(),
+)
+
+private data class CombinedUiInputs(
+    val settings: AssistantSettings,
+    val telecomSnapshot: TelecomSnapshot,
+    val speechState: SpeechUiState,
+    val assistantHistory: List<AssistantExchange>,
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as CallCompanionApp
     private val settingsRepository: AssistantSettingsRepository = app.container.settingsRepository
+    private val assistantSessionRepository: AssistantSessionRepository = app.container.assistantSessionRepository
     private val assistantCoordinator: AssistantCoordinator = app.container.assistantCoordinator
     private val speechRecognizerManager: SpeechRecognizerManager = app.container.speechRecognizerManager
     private val textToSpeechManager: TextToSpeechManager = app.container.textToSpeechManager
@@ -43,13 +56,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val latestReply = MutableStateFlow("")
     private val latestReplySource = MutableStateFlow("No reply generated yet.")
     private val backendStatus = MutableStateFlow("Configure a backend URL and session token for Codex-backed replies, or use the local fallback.")
+    private val assistantHistory = MutableStateFlow(assistantSessionRepository.load())
 
     private val baseState = combine(
         settingsRepository.observe(),
         TelecomEventStore.observe(),
         speechRecognizerManager.observe(),
-    ) { settings, telecom, speech ->
-        Triple(settings, telecom, speech)
+        assistantHistory,
+    ) { settings, telecom, speech, sessionHistory ->
+        CombinedUiInputs(
+            settings = settings,
+            telecomSnapshot = telecom,
+            speechState = speech,
+            assistantHistory = sessionHistory,
+        )
     }
 
     val uiState: StateFlow<MainUiState> = combine(
@@ -59,18 +79,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         latestReplySource,
         backendStatus,
     ) { base, draft, reply, source, backendMessage ->
-        val (settings, telecom, speech) = base
         MainUiState(
-            settings = settings,
-            telecomSnapshot = telecom,
-            speechState = speech,
-            draftCallerText = if (draft.isBlank()) speech.transcript else draft,
+            settings = base.settings,
+            telecomSnapshot = base.telecomSnapshot,
+            speechState = base.speechState,
+            draftCallerText = if (draft.isBlank()) base.speechState.transcript else draft,
             latestReply = reply,
             latestReplySource = source,
             backendStatus = backendMessage,
             hasDialerRole = hasDialerRole(),
             canRequestDialerRole = canRequestDialerRole(),
-            canAnswerCalls = telecom.hasActiveCall,
+            canAnswerCalls = base.telecomSnapshot.hasActiveCall,
+            assistantHistory = base.assistantHistory,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initialState())
 
@@ -98,6 +118,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         settingsRepository.update { it.copy(silenceNumberSuffix = value) }
     }
 
+    fun updateAutoSpeakReplies(enabled: Boolean) {
+        settingsRepository.update { it.copy(autoSpeakReplies = enabled) }
+    }
+
     fun startSpeechRecognition() {
         speechRecognizerManager.startListening()
     }
@@ -122,16 +146,33 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         TelecomEventStore.clearHistory()
     }
 
+    fun clearAssistantHistory() {
+        assistantSessionRepository.clear()
+        assistantHistory.value = emptyList()
+    }
+
     fun speakLatestReply() {
         textToSpeechManager.speak(latestReply.value)
     }
 
     fun generateReply() {
         viewModelScope.launch {
-            val response = assistantCoordinator.generateReply(uiState.value.draftCallerText)
+            val callerText = uiState.value.draftCallerText.trim()
+            val response = assistantCoordinator.generateReply(callerText)
             latestReply.value = response.reply
             latestReplySource.value = "Reply source: ${response.source}"
             backendStatus.value = response.statusMessage
+            assistantHistory.value = assistantSessionRepository.append(
+                AssistantExchange(
+                    timestampLabel = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),
+                    callerText = callerText,
+                    replyText = response.reply,
+                    source = response.source.name,
+                ),
+            )
+            if (settingsRepository.observe().value.autoSpeakReplies) {
+                textToSpeechManager.speak(response.reply)
+            }
         }
     }
 
@@ -149,6 +190,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             hasDialerRole = hasDialerRole(),
             canRequestDialerRole = canRequestDialerRole(),
             canAnswerCalls = false,
+            assistantHistory = assistantSessionRepository.load(),
         )
     }
 
