@@ -15,6 +15,7 @@ Create the smallest honest Android implementation that can be built and reasoned
 - Added a simple Compose UI for telecom state, speech demo, and backend token configuration.
 - Added persistent recent Telecom history with an in-app clear action.
 - Added local STT and TTS wrappers.
+- Added persistent assistant exchange history and an auto-speak reply option.
 - Added a backend-compatible assistant client with a local fallback reply.
 - Added unit tests, CI, README, and AGENTS documentation.
 
@@ -27,6 +28,7 @@ Android telecom APIs support dialer-role UI and call screening, but they do not 
 - The repository is now a buildable Android project.
 - The app can request dialer-role integration and expose honest telecom capability surfaces.
 - The app now preserves recent call and screening events across app restarts.
+- The assistant flow now preserves recent caller/reply exchanges and can automatically speak fresh replies.
 - Future work can layer on device-validated behavior without rewriting the foundation.
 
 ## Verification
