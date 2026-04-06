@@ -18,6 +18,7 @@ class AssistantSettingsRepository(context: Context) {
             .putString(KEY_BACKEND_SESSION_TOKEN, updated.backendSessionToken)
             .putString(KEY_SYSTEM_PROMPT, updated.systemPrompt)
             .putString(KEY_SILENCE_SUFFIX, updated.silenceNumberSuffix)
+            .putBoolean(KEY_AUTO_SPEAK_REPLIES, updated.autoSpeakReplies)
             .apply()
         state.value = updated
     }
@@ -27,6 +28,7 @@ class AssistantSettingsRepository(context: Context) {
         backendSessionToken = prefs.getString(KEY_BACKEND_SESSION_TOKEN, "").orEmpty(),
         systemPrompt = prefs.getString(KEY_SYSTEM_PROMPT, DEFAULT_SYSTEM_PROMPT).orEmpty(),
         silenceNumberSuffix = prefs.getString(KEY_SILENCE_SUFFIX, "0000").orEmpty(),
+        autoSpeakReplies = prefs.getBoolean(KEY_AUTO_SPEAK_REPLIES, false),
     )
 
     private companion object {
@@ -35,5 +37,6 @@ class AssistantSettingsRepository(context: Context) {
         const val KEY_BACKEND_SESSION_TOKEN = "backend_session_token"
         const val KEY_SYSTEM_PROMPT = "system_prompt"
         const val KEY_SILENCE_SUFFIX = "silence_suffix"
+        const val KEY_AUTO_SPEAK_REPLIES = "auto_speak_replies"
     }
 }

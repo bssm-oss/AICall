@@ -22,7 +22,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -79,11 +81,13 @@ class MainActivity : ComponentActivity() {
                     onStopListening = viewModel::stopSpeechRecognition,
                     onGenerateReply = viewModel::generateReply,
                     onSpeakReply = viewModel::speakLatestReply,
+                    onClearAssistantHistory = viewModel::clearAssistantHistory,
                     onDraftChange = viewModel::updateDraftCallerText,
                     onBaseUrlChange = viewModel::updateBackendBaseUrl,
                     onBackendTokenChange = viewModel::updateBackendToken,
                     onSystemPromptChange = viewModel::updateSystemPrompt,
                     onSilenceSuffixChange = viewModel::updateSilenceSuffix,
+                    onAutoSpeakRepliesChange = viewModel::updateAutoSpeakReplies,
                     onAnswerCall = viewModel::answerCall,
                     onRejectCall = viewModel::rejectCall,
                     onEndCall = viewModel::endCall,
@@ -103,11 +107,13 @@ private fun MainScreen(
     onStopListening: () -> Unit,
     onGenerateReply: () -> Unit,
     onSpeakReply: () -> Unit,
+    onClearAssistantHistory: () -> Unit,
     onDraftChange: (String) -> Unit,
     onBaseUrlChange: (String) -> Unit,
     onBackendTokenChange: (String) -> Unit,
     onSystemPromptChange: (String) -> Unit,
     onSilenceSuffixChange: (String) -> Unit,
+    onAutoSpeakRepliesChange: (Boolean) -> Unit,
     onAnswerCall: () -> Unit,
     onRejectCall: () -> Unit,
     onEndCall: () -> Unit,
@@ -197,6 +203,16 @@ private fun MainScreen(
                 }
                 Text(state.latestReplySource, style = MaterialTheme.typography.labelLarge)
                 Text(state.latestReply.ifBlank { "No reply yet." })
+                TextButton(onClick = onClearAssistantHistory, enabled = state.assistantHistory.isNotEmpty()) {
+                    Text("Clear assistant history")
+                }
+                if (state.assistantHistory.isEmpty()) {
+                    Text("No assistant exchanges yet.")
+                } else {
+                    state.assistantHistory.forEach { exchange ->
+                        Text("${exchange.timestampLabel} • ${exchange.source} • Heard: ${exchange.callerText} • Reply: ${exchange.replyText}")
+                    }
+                }
             }
 
             StatusCard(
@@ -230,6 +246,13 @@ private fun MainScreen(
                     label = { Text("Silence screening suffix") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Checkbox(
+                        checked = state.settings.autoSpeakReplies,
+                        onCheckedChange = onAutoSpeakRepliesChange,
+                    )
+                    Text("Automatically speak newly generated replies")
+                }
                 Text(
                     "The Android app only stores a backend session token. Your backend is responsible for Codex/OpenAI OAuth or secret management.",
                     style = MaterialTheme.typography.bodySmall,
@@ -254,7 +277,7 @@ private fun StatusCard(
         ) {
             Text(title, style = MaterialTheme.typography.titleLarge)
             Text(body, style = MaterialTheme.typography.bodyMedium)
-            Divider()
+            HorizontalDivider()
             content()
         }
     }

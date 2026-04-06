@@ -2,6 +2,7 @@ package com.aicall.companion
 
 import android.app.Application
 import com.aicall.companion.assistant.AssistantCoordinator
+import com.aicall.companion.assistant.AssistantSessionRepository
 import com.aicall.companion.assistant.AssistantSettingsRepository
 import com.aicall.companion.speech.SpeechRecognizerManager
 import com.aicall.companion.speech.TextToSpeechManager
@@ -20,6 +21,7 @@ class CallCompanionApp : Application() {
 
 class AppContainer(application: Application) {
     val settingsRepository = AssistantSettingsRepository(application)
+    val assistantSessionRepository = AssistantSessionRepository(application)
     val speechRecognizerManager = SpeechRecognizerManager(application)
     val textToSpeechManager = TextToSpeechManager(application)
     val telecomHistoryRepository = TelecomHistoryRepository(application)
