@@ -30,7 +30,7 @@ class AssistantCoordinator(
         val normalizedText = callerText.trim()
         if (normalizedText.isBlank()) {
             return AssistantResponse(
-                reply = "Please say or enter something before asking the assistant to reply.",
+                reply = "응답을 생성하기 전에 먼저 말하거나 텍스트를 입력해 주세요.",
                 source = ResponseSource.Demo,
                 statusMessage = "입력이 비어 있어 Codex 요청을 시작하지 않았습니다.",
             )
@@ -92,7 +92,7 @@ class AssistantCoordinator(
         private const val CODEX_RESPONSES_URL = "https://api.openai.com/v1/responses"
 
         fun buildDemoReply(callerText: String): String {
-            return "Hello, this is the AI call companion. I heard: '$callerText'. Codex access token is not connected, so this is the local fallback reply."
+            return "안녕하세요, AI 전화 도우미입니다. 현재 들은 내용은 '$callerText' 입니다. Codex access token이 연결되지 않아 로컬 fallback 응답을 사용합니다."
         }
 
         internal fun buildCodexRequestBody(

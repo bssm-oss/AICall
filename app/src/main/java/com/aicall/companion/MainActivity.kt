@@ -323,7 +323,7 @@ private fun MainScreen(
                     Text("아직 어시스턴트 기록이 없습니다.")
                 } else {
                     state.assistantHistory.forEach { exchange ->
-                        Text("${exchange.timestampLabel} • ${exchange.source} • Heard: ${exchange.callerText} • Reply: ${exchange.replyText}")
+                        Text("${exchange.timestampLabel} • ${exchange.source} • 입력: ${exchange.callerText} • 응답: ${exchange.replyText}")
                     }
                 }
             }
@@ -360,7 +360,7 @@ private fun MainScreen(
                     onValueChange = onCodexAccessTokenChange,
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Codex access token") },
-                    placeholder = { Text("ChatGPT/Codex access token") },
+                    placeholder = { Text("ChatGPT/Codex access token 붙여넣기") },
                 )
                 OutlinedTextField(
                     value = state.settings.systemPrompt,
@@ -421,8 +421,8 @@ private fun StatusCard(
 
 private fun AssistantEngine.toKoreanLabel(): String = when (this) {
     AssistantEngine.Codex -> "Codex"
-    AssistantEngine.Local -> "Local"
-    AssistantEngine.Demo -> "Demo"
+    AssistantEngine.Local -> "로컬"
+    AssistantEngine.Demo -> "데모"
 }
 
 private fun String.toMaskedTokenSummary(): String {
@@ -435,9 +435,9 @@ private fun String.toMaskedTokenSummary(): String {
 }
 
 private fun String.toKoreanReplySource(): String = when {
-    isBlank() || this == "No reply generated yet." -> "아직 없음"
+    isBlank() || this == "아직 생성된 응답이 없습니다." -> "아직 없음"
     contains("Codex") -> "Codex"
-    contains("Local") -> "Local"
-    contains("Demo") -> "Demo"
+    contains("Local") || contains("로컬") -> "로컬"
+    contains("Demo") || contains("데모") -> "데모"
     else -> this
 }
