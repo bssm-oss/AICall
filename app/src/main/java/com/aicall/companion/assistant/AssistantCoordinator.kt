@@ -2,76 +2,162 @@ package com.aicall.companion.assistant
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
 class AssistantCoordinator(
-    private val settingsRepository: AssistantSettingsRepository,
+    private val settingsRepository: AssistantSettingsRepository? = null,
+    private val localLlmEngine: LocalLlmEngine = PlaceholderLocalLlmEngine(),
     private val client: OkHttpClient = OkHttpClient(),
     private val json: Json = Json { ignoreUnknownKeys = true },
+    private val responsesUrl: String = CODEX_RESPONSES_URL,
+    private val settingsProvider: (() -> AssistantSettings)? = null,
 ) {
+    fun getLocalEngineStatus(settings: AssistantSettings): String {
+        return localLlmEngine.getEngineStatus(settings)
+    }
+
     suspend fun generateReply(callerText: String): AssistantResponse {
         val normalizedText = callerText.trim()
         if (normalizedText.isBlank()) {
             return AssistantResponse(
                 reply = "Please say or enter something before asking the assistant to reply.",
                 source = ResponseSource.Demo,
-                statusMessage = "No caller text was provided, so the assistant did not contact the backend.",
+                statusMessage = "입력이 비어 있어 Codex 요청을 시작하지 않았습니다.",
             )
         }
 
-        val settings = settingsRepository.observe().value
-        val backendUrl = settings.backendBaseUrl.trim().trimEnd('/')
-        val backendToken = settings.backendSessionToken.trim()
-
-        if (backendUrl.isBlank() || backendToken.isBlank()) {
+        val settings = settingsProvider?.invoke() ?: requireNotNull(settingsRepository).observe().value
+        if (settings.selectedEngine == AssistantEngine.Demo) {
             return AssistantResponse(
                 reply = buildDemoReply(normalizedText),
                 source = ResponseSource.Demo,
-                statusMessage = "Using the local fallback reply because the Codex backend URL or session token is still empty.",
+                statusMessage = "데모 엔진이 선택되어 로컬 fallback 응답을 사용했습니다.",
+            )
+        }
+        if (settings.selectedEngine == AssistantEngine.Local) {
+            return localLlmEngine.generateReply(normalizedText, settings)
+        }
+        val codexAccessToken = settings.codexAccessToken.trim()
+
+        if (codexAccessToken.isBlank()) {
+            return AssistantResponse(
+                reply = "Codex access token이 아직 연결되지 않았습니다. Codex sign-in 후 access token을 붙여넣어 주세요.",
+                source = ResponseSource.Demo,
+                statusMessage = "Codex sign-in 후 access token을 붙여넣으면 Codex 요청 경로를 사용할 수 있습니다. backend URL 입력은 더 이상 필요하지 않습니다.",
             )
         }
 
         return withContext(Dispatchers.IO) {
-            val body = json.encodeToString(
-                AssistantRequestPayload(
-                    callerText = normalizedText,
-                    systemPrompt = settings.systemPrompt,
-                )
+            val requestBody = buildCodexRequestBody(
+                callerText = normalizedText,
+                settings = settings,
             )
             val request = Request.Builder()
-                .url("$backendUrl/assistant/respond")
-                .header("Authorization", "Bearer $backendToken")
-                .post(body.toRequestBody("application/json".toMediaType()))
+                .url(responsesUrl)
+                .header("Authorization", "Bearer $codexAccessToken")
+                .header("Content-Type", "application/json")
+                .post(requestBody.toRequestBody("application/json".toMediaType()))
                 .build()
 
             client.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
                 if (!response.isSuccessful) {
                     return@use AssistantResponse(
-                        reply = "Backend request failed with HTTP ${response.code}. Falling back is recommended until the Codex backend is configured.",
+                        reply = "Codex 요청이 HTTP ${response.code}로 실패했습니다. access token이 만료되었거나, 붙여넣은 값이 Codex용 access token이 아닐 수 있습니다.",
                         source = ResponseSource.Demo,
-                        statusMessage = "The Codex-compatible backend returned HTTP ${response.code}, so the app stayed in a safe local-only state.",
+                        statusMessage = "브라우저에서 Codex sign-in을 다시 진행한 뒤 최신 access token을 다시 붙여넣어 주세요.",
                     )
                 }
-                val payload = response.body?.string().orEmpty()
-                val parsed = json.decodeFromString<AssistantResponsePayload>(payload)
+
                 AssistantResponse(
-                    reply = parsed.reply,
-                    source = ResponseSource.Backend,
-                    statusMessage = "Using Codex-compatible backend token flow. Long-lived provider secrets stay off-device.",
+                    reply = extractReplyText(body),
+                    source = ResponseSource.Codex,
+                    statusMessage = "붙여넣은 Codex access token으로 OpenAI Responses 요청을 보냈고, 이 경로를 통해 응답을 받았습니다.",
                 )
             }
         }
     }
 
     companion object {
+        private const val CODEX_RESPONSES_URL = "https://api.openai.com/v1/responses"
+
         fun buildDemoReply(callerText: String): String {
-            return "Hello, this is the AI call companion. I heard: '$callerText'. The Codex-backed server token is not configured, so this is the local fallback reply."
+            return "Hello, this is the AI call companion. I heard: '$callerText'. Codex access token is not connected, so this is the local fallback reply."
+        }
+
+        internal fun buildCodexRequestBody(
+            callerText: String,
+            settings: AssistantSettings,
+        ): String {
+            return """
+                {
+                  "model": "gpt-5.4",
+                  "input": [
+                    {
+                      "role": "system",
+                      "content": [
+                        {
+                          "type": "input_text",
+                          "text": ${jsonString(settings.systemPrompt)}
+                        }
+                      ]
+                    },
+                    {
+                      "role": "user",
+                      "content": [
+                        {
+                          "type": "input_text",
+                          "text": ${jsonString(callerText)}
+                        }
+                      ]
+                    }
+                  ]
+                }
+            """.trimIndent()
+        }
+
+        internal fun extractReplyText(responseBody: String): String {
+            val root = Json.parseToJsonElement(responseBody).jsonObject
+            val outputText = runCatching {
+                root["output_text"]?.jsonPrimitive?.content
+            }.getOrNull()
+            if (!outputText.isNullOrBlank()) {
+                return outputText
+            }
+
+            val output = root["output"]?.jsonArray ?: JsonArray(emptyList())
+            val firstText = findFirstText(output)
+
+            return firstText ?: "Codex 응답 본문을 읽었지만 표시 가능한 text를 찾지 못했습니다."
+        }
+
+        private fun jsonString(value: String): String {
+            return Json.encodeToString(String.serializer(), value)
+        }
+
+        private fun findFirstText(output: JsonArray): String? {
+            for (outputItem in output) {
+                val outputObject = outputItem.jsonObject
+                val contents = outputObject["content"]?.jsonArray ?: continue
+                for (contentItem in contents) {
+                    val contentObject: JsonObject = contentItem.jsonObject
+                    val text = runCatching { contentObject["text"]?.jsonPrimitive?.content }.getOrNull()
+                    if (!text.isNullOrBlank()) {
+                        return text
+                    }
+                }
+            }
+            return null
         }
     }
 }
