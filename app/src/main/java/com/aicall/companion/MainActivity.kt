@@ -2,6 +2,9 @@ package com.aicall.companion
 
 import android.Manifest
 import android.app.role.RoleManager
+import android.content.ClipboardManager
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -23,7 +26,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.Divider
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -37,7 +40,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.aicall.companion.assistant.AssistantEngine
+import com.aicall.companion.telecom.TelecomTestLabAction
 import com.aicall.companion.ui.theme.AICallTheme
+
+private const val TEST_LAB_SAMPLE_CALLER_TEXT = "안녕하세요. 오늘 예약 시간을 다시 확인하고 싶어서 전화드렸어요."
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
@@ -58,6 +65,22 @@ class MainActivity : ComponentActivity() {
                 ) {
                     viewModel.refreshCapabilities()
                 }
+                val localModelLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.OpenDocument(),
+                ) { uri: Uri? ->
+                    if (uri != null) {
+                        contentResolver.takePersistableUriPermission(
+                            uri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                        )
+                        viewModel.updateLocalModelSelection(
+                            uri = uri.toString(),
+                            label = uri.lastPathSegment.orEmpty(),
+                        )
+                    }
+                }
+                val codexAuthUri = Uri.parse("https://developers.openai.com/codex/auth")
+                val clipboardManager = getSystemService(ClipboardManager::class.java)
 
                 LaunchedEffect(Unit) {
                     viewModel.refreshCapabilities()
@@ -83,15 +106,32 @@ class MainActivity : ComponentActivity() {
                     onSpeakReply = viewModel::speakLatestReply,
                     onClearAssistantHistory = viewModel::clearAssistantHistory,
                     onDraftChange = viewModel::updateDraftCallerText,
-                    onBaseUrlChange = viewModel::updateBackendBaseUrl,
-                    onBackendTokenChange = viewModel::updateBackendToken,
+                    onSelectedEngineChange = viewModel::updateSelectedEngine,
+                    onCodexAccessTokenChange = viewModel::updateCodexAccessToken,
                     onSystemPromptChange = viewModel::updateSystemPrompt,
                     onSilenceSuffixChange = viewModel::updateSilenceSuffix,
                     onAutoSpeakRepliesChange = viewModel::updateAutoSpeakReplies,
+                    onSelectLocalModel = { localModelLauncher.launch(arrayOf("*/*")) },
+                    onOpenCodexAuth = {
+                        startActivity(Intent(Intent.ACTION_VIEW, codexAuthUri))
+                    },
+                    onPasteCodexToken = {
+                        val clipText = clipboardManager?.primaryClip
+                            ?.takeIf { it.itemCount > 0 }
+                            ?.getItemAt(0)
+                            ?.coerceToText(this)
+                            ?.toString()
+                            .orEmpty()
+                        if (clipText.isNotBlank()) {
+                            viewModel.updateCodexAccessToken(clipText)
+                        }
+                    },
+                    onInspectLocalEngineStatus = viewModel::inspectLocalEngineStatus,
                     onAnswerCall = viewModel::answerCall,
                     onRejectCall = viewModel::rejectCall,
                     onEndCall = viewModel::endCall,
                     onClearTelecomHistory = viewModel::clearTelecomHistory,
+                    onTriggerTestLabAction = viewModel::applyTelecomTestLabAction,
                 )
             }
         }
@@ -109,15 +149,20 @@ private fun MainScreen(
     onSpeakReply: () -> Unit,
     onClearAssistantHistory: () -> Unit,
     onDraftChange: (String) -> Unit,
-    onBaseUrlChange: (String) -> Unit,
-    onBackendTokenChange: (String) -> Unit,
+    onSelectedEngineChange: (AssistantEngine) -> Unit,
+    onCodexAccessTokenChange: (String) -> Unit,
     onSystemPromptChange: (String) -> Unit,
     onSilenceSuffixChange: (String) -> Unit,
     onAutoSpeakRepliesChange: (Boolean) -> Unit,
+    onSelectLocalModel: () -> Unit,
+    onOpenCodexAuth: () -> Unit,
+    onPasteCodexToken: () -> Unit,
+    onInspectLocalEngineStatus: () -> Unit,
     onAnswerCall: () -> Unit,
     onRejectCall: () -> Unit,
     onEndCall: () -> Unit,
     onClearTelecomHistory: () -> Unit,
+    onTriggerTestLabAction: (TelecomTestLabAction) -> Unit,
 ) {
     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
         Column(
@@ -128,39 +173,107 @@ private fun MainScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text("AI Call Companion", style = MaterialTheme.typography.headlineMedium)
+            Text("AI 전화 도우미", style = MaterialTheme.typography.headlineMedium)
             Text(
-                "This MVP is an honest carrier-call companion: Telecom role handling, screening, and a separate STT/TTS assistant flow.",
+                "이 앱은 Android가 실제로 지원하는 범위 안에서 Telecom 역할, screening, STT/TTS 보조 흐름을 제공하는 정직한 통화 도우미입니다.",
                 style = MaterialTheme.typography.bodyMedium,
             )
 
             StatusCard(
-                title = "Telecom role and call state",
-                body = "Dialer role held: ${state.hasDialerRole}\n" +
-                    "Latest call: ${state.telecomSnapshot.latestCallSummary}\n" +
-                    "Screening: ${state.telecomSnapshot.screeningSummary}",
+                title = "테스트 랩",
+                body = "실제 carrier call 없이 앱 안에서 assistant, Codex token, 로컬 모델 선택 상태, 테스트 전용 Telecom 이벤트를 점검합니다. 아래 Telecom 버튼은 [TEST ONLY] 기록만 남기며 실제 통화 처리에는 연결되지 않습니다.",
+            ) {
+                Text("테스트 전용 Telecom 상태", style = MaterialTheme.typography.titleMedium)
+                Text(state.telecomSnapshot.testLabState.latestCallSummary)
+                Text(state.telecomSnapshot.testLabState.latestScreeningSummary)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { onTriggerTestLabAction(TelecomTestLabAction.IncomingRinging) }) {
+                        Text("가짜 수신")
+                    }
+                    Button(onClick = { onTriggerTestLabAction(TelecomTestLabAction.ConnectedActive) }) {
+                        Text("가짜 연결")
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { onTriggerTestLabAction(TelecomTestLabAction.Ended) }) {
+                        Text("가짜 종료")
+                    }
+                    Button(onClick = { onTriggerTestLabAction(TelecomTestLabAction.ScreeningAllow) }) {
+                        Text("허용 판정")
+                    }
+                    Button(onClick = { onTriggerTestLabAction(TelecomTestLabAction.ScreeningSilence) }) {
+                        Text("무음 판정")
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = { onTriggerTestLabAction(TelecomTestLabAction.Reset) }) {
+                        Text("테스트 초기화")
+                    }
+                }
+                HorizontalDivider()
+                Text("엔진 점검", style = MaterialTheme.typography.titleMedium)
+                Text("선택 엔진: ${state.settings.selectedEngine.toKoreanLabel()}")
+                Text("Codex 토큰: ${state.settings.codexAccessToken.toMaskedTokenSummary()}")
+                Text("로컬 모델: ${state.settings.localModelLabel.ifBlank { "선택된 GGUF 모델 없음" }}")
+                Text(state.codexStatus, style = MaterialTheme.typography.bodySmall)
+                TextButton(onClick = onInspectLocalEngineStatus) {
+                    Text("로컬 엔진 상태 점검")
+                }
+                HorizontalDivider()
+                Text("어시스턴트 흐름 검증", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "샘플 입력을 채운 뒤 응답 생성과 최근 응답 읽기를 바로 눌러, 실제 통화 없이 assistant 흐름을 검증할 수 있습니다.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = { onDraftChange(TEST_LAB_SAMPLE_CALLER_TEXT) }) {
+                        Text("샘플 입력 채우기")
+                    }
+                    Button(onClick = onGenerateReply) {
+                        Text("응답 생성")
+                    }
+                    Button(onClick = onSpeakReply, enabled = state.latestReply.isNotBlank()) {
+                        Text("최근 응답 읽기")
+                    }
+                }
+                Text(
+                    "현재 테스트 입력: ${state.draftCallerText.ifBlank { "아직 없음" }}",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Text(
+                    "최근 응답 엔진: ${state.latestReplySource.toKoreanReplySource()}",
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                Text(state.latestReply.ifBlank { "아직 생성된 응답이 없습니다." })
+            }
+
+            StatusCard(
+                title = "Telecom 역할과 통화 상태",
+                body = "기본 다이얼러 역할 보유: ${state.hasDialerRole}\n" +
+                    "최근 통화 상태: ${state.telecomSnapshot.latestCallSummary}\n" +
+                    "스크리닝: ${state.telecomSnapshot.screeningSummary}",
             ) {
                 if (!state.hasDialerRole && state.canRequestDialerRole) {
                     Button(onClick = onRequestDialerRole) {
-                        Text("Request default dialer role")
+                        Text("기본 다이얼러 역할 요청")
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = onAnswerCall, enabled = state.canAnswerCalls) {
-                        Text("Answer")
+                        Text("받기")
                     }
                     Button(onClick = onRejectCall, enabled = state.canAnswerCalls) {
-                        Text("Reject")
+                        Text("거절")
                     }
                     Button(onClick = onEndCall, enabled = state.canAnswerCalls) {
-                        Text("Hang up")
+                        Text("끊기")
                     }
                 }
                 TextButton(onClick = onClearTelecomHistory, enabled = state.telecomSnapshot.recentEvents.isNotEmpty()) {
-                    Text("Clear history")
+                    Text("기록 지우기")
                 }
                 if (state.telecomSnapshot.recentEvents.isEmpty()) {
-                    Text("No recent Telecom history yet.")
+                    Text("아직 Telecom 기록이 없습니다.")
                 } else {
                     state.telecomSnapshot.recentEvents.forEach { entry ->
                         Text("${entry.timestampLabel} • ${entry.message}")
@@ -169,45 +282,45 @@ private fun MainScreen(
             }
 
             StatusCard(
-                title = "Speech assistant demo",
-                body = "Recognition available: ${state.speechState.isRecognitionAvailable}\n" +
-                    "Microphone permission: ${state.speechState.hasRecordAudioPermission}\n" +
-                    "Recognizer error: ${state.speechState.lastError.ifBlank { "None" }}",
+                title = "음성 보조 흐름",
+                body = "음성 인식 가능: ${state.speechState.isRecognitionAvailable}\n" +
+                    "마이크 권한: ${state.speechState.hasRecordAudioPermission}\n" +
+                    "인식 오류: ${state.speechState.lastError.ifBlank { "없음" }}",
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (!state.speechState.hasRecordAudioPermission) {
                         Button(onClick = onRequestMicrophone) {
-                            Text("Grant microphone")
+                            Text("마이크 권한 허용")
                         }
                     }
                     Button(onClick = onStartListening, enabled = !state.speechState.isListening) {
-                        Text("Start STT")
+                        Text("STT 시작")
                     }
                     TextButton(onClick = onStopListening, enabled = state.speechState.isListening) {
-                        Text("Stop")
+                        Text("중지")
                     }
                 }
                 OutlinedTextField(
                     value = state.draftCallerText,
                     onValueChange = onDraftChange,
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Caller text / STT transcript") },
+                    label = { Text("상대 입력 / STT 전사문") },
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = onGenerateReply) {
-                        Text("Generate reply")
+                        Text("응답 생성")
                     }
                     Button(onClick = onSpeakReply, enabled = state.latestReply.isNotBlank()) {
-                        Text("Speak reply")
+                        Text("응답 읽기")
                     }
                 }
                 Text(state.latestReplySource, style = MaterialTheme.typography.labelLarge)
-                Text(state.latestReply.ifBlank { "No reply yet." })
+                Text(state.latestReply.ifBlank { "아직 생성된 응답이 없습니다." })
                 TextButton(onClick = onClearAssistantHistory, enabled = state.assistantHistory.isNotEmpty()) {
-                    Text("Clear assistant history")
+                    Text("어시스턴트 기록 지우기")
                 }
                 if (state.assistantHistory.isEmpty()) {
-                    Text("No assistant exchanges yet.")
+                    Text("아직 어시스턴트 기록이 없습니다.")
                 } else {
                     state.assistantHistory.forEach { exchange ->
                         Text("${exchange.timestampLabel} • ${exchange.source} • Heard: ${exchange.callerText} • Reply: ${exchange.replyText}")
@@ -216,34 +329,50 @@ private fun MainScreen(
             }
 
             StatusCard(
-                title = "Codex-compatible backend settings",
-                body = state.backendStatus,
+                title = "Codex 로그인과 로컬 엔진 설정",
+                body = state.codexStatus,
             ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AssistantEngine.entries.forEach { engine ->
+                        FilterChip(
+                            selected = state.settings.selectedEngine == engine,
+                            onClick = { onSelectedEngineChange(engine) },
+                            label = {
+                                Text(
+                                    when (engine) {
+                                        AssistantEngine.Codex -> "Codex"
+                                        AssistantEngine.Local -> "로컬"
+                                        AssistantEngine.Demo -> "데모"
+                                    }
+                                )
+                            },
+                        )
+                    }
+                }
+                Button(onClick = onOpenCodexAuth) {
+                    Text("Codex 로그인 열기")
+                }
+                TextButton(onClick = onPasteCodexToken) {
+                    Text("클립보드에서 토큰 붙여넣기")
+                }
                 OutlinedTextField(
-                    value = state.settings.backendBaseUrl,
-                    onValueChange = onBaseUrlChange,
+                    value = state.settings.codexAccessToken,
+                    onValueChange = onCodexAccessTokenChange,
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Backend base URL") },
-                    placeholder = { Text("https://your-backend.example.com") },
-                )
-                OutlinedTextField(
-                    value = state.settings.backendSessionToken,
-                    onValueChange = onBackendTokenChange,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Backend session token") },
-                    placeholder = { Text("Short-lived token from your Codex backend") },
+                    label = { Text("Codex access token") },
+                    placeholder = { Text("ChatGPT/Codex access token") },
                 )
                 OutlinedTextField(
                     value = state.settings.systemPrompt,
                     onValueChange = onSystemPromptChange,
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("System prompt") },
+                    label = { Text("시스템 프롬프트") },
                 )
                 OutlinedTextField(
                     value = state.settings.silenceNumberSuffix,
                     onValueChange = onSilenceSuffixChange,
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Silence screening suffix") },
+                    label = { Text("무음 스크리닝 접미사") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -251,10 +380,17 @@ private fun MainScreen(
                         checked = state.settings.autoSpeakReplies,
                         onCheckedChange = onAutoSpeakRepliesChange,
                     )
-                    Text("Automatically speak newly generated replies")
+                    Text("새 응답을 자동으로 읽기")
+                }
+                Button(onClick = onSelectLocalModel) {
+                    Text("GGUF 모델 선택")
                 }
                 Text(
-                    "The Android app only stores a backend session token. Your backend is responsible for Codex/OpenAI OAuth or secret management.",
+                    state.settings.localModelLabel.ifBlank { "아직 선택된 로컬 GGUF 모델이 없습니다." },
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Text(
+                    "백엔드 URL은 더 이상 직접 입력하지 않습니다. Codex 브라우저 sign-in 후 얻은 access token을 앱에 붙여넣어 사용하는 흐름을 지원합니다.",
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
@@ -281,4 +417,27 @@ private fun StatusCard(
             content()
         }
     }
+}
+
+private fun AssistantEngine.toKoreanLabel(): String = when (this) {
+    AssistantEngine.Codex -> "Codex"
+    AssistantEngine.Local -> "Local"
+    AssistantEngine.Demo -> "Demo"
+}
+
+private fun String.toMaskedTokenSummary(): String {
+    val trimmed = trim()
+    if (trimmed.isBlank()) {
+        return "미연결"
+    }
+    val suffix = trimmed.takeLast(4)
+    return "연결됨 (끝 4자리: $suffix)"
+}
+
+private fun String.toKoreanReplySource(): String = when {
+    isBlank() || this == "No reply generated yet." -> "아직 없음"
+    contains("Codex") -> "Codex"
+    contains("Local") -> "Local"
+    contains("Demo") -> "Demo"
+    else -> this
 }
