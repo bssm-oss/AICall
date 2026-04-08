@@ -23,36 +23,36 @@ object TelecomEventStore {
     fun onCallAdded(call: Call) {
         activeCall = call
         state.value = state.value.copy(
-            latestCallSummary = "Active call state: ${call.state.toHumanReadableState()}",
+            latestCallSummary = "실제 통화 상태: ${call.state.toHumanReadableState()}",
             hasActiveCall = true,
         )
-        appendHistory("Call added with state ${call.state.toHumanReadableState()}.")
+        appendHistory("실제 통화가 추가되었습니다: ${call.state.toHumanReadableState()}")
     }
 
     fun onCallUpdated(call: Call) {
         if (activeCall == call) {
             state.value = state.value.copy(
-                latestCallSummary = "Active call state: ${call.state.toHumanReadableState()}",
+                latestCallSummary = "실제 통화 상태: ${call.state.toHumanReadableState()}",
                 hasActiveCall = true,
             )
-            appendHistory("Call updated to ${call.state.toHumanReadableState()}.")
+            appendHistory("실제 통화 상태가 ${call.state.toHumanReadableState()}(으)로 바뀌었습니다.")
         }
     }
 
     fun onCallRemoved() {
         activeCall = null
         state.value = state.value.copy(
-            latestCallSummary = "Active call ended or was removed.",
+            latestCallSummary = "실제 통화가 종료되었거나 제거되었습니다.",
             hasActiveCall = false,
         )
-        appendHistory("Call removed from the active Telecom session.")
+        appendHistory("실제 Telecom 통화가 세션에서 제거되었습니다.")
     }
 
     fun onScreeningDecision(number: String, decision: ScreeningDecision) {
         state.value = state.value.copy(
-            screeningSummary = "Screening decision for $number: $decision",
+            screeningSummary = "$number 에 대한 스크리닝 판정: $decision",
         )
-        appendHistory("Screening decision for $number: $decision")
+        appendHistory("$number 에 대한 스크리닝 판정: $decision")
     }
 
     fun applyTestLabAction(action: TelecomTestLabAction) {
@@ -64,17 +64,17 @@ object TelecomEventStore {
 
     fun answerActiveCall() {
         activeCall?.answer(VideoProfile.STATE_AUDIO_ONLY)
-        appendHistory("Attempted to answer the active call.")
+        appendHistory("실제 active 통화에 대해 받기를 시도했습니다.")
     }
 
     fun rejectActiveCall() {
         activeCall?.reject(false, null)
-        appendHistory("Attempted to reject the active call.")
+        appendHistory("실제 active 통화에 대해 거절을 시도했습니다.")
     }
 
     fun disconnectActiveCall() {
         activeCall?.disconnect()
-        appendHistory("Attempted to disconnect the active call.")
+        appendHistory("실제 active 통화에 대해 끊기를 시도했습니다.")
     }
 
     fun clearHistory() {

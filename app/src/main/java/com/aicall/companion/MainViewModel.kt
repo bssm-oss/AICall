@@ -31,7 +31,7 @@ data class MainUiState(
     val speechState: SpeechUiState,
     val draftCallerText: String = "",
     val latestReply: String = "",
-    val latestReplySource: String = "No reply generated yet.",
+    val latestReplySource: String = "아직 생성된 응답이 없습니다.",
     val codexStatus: String = "Codex sign-in 후 access token을 연결하면 Codex 경로를 사용할 수 있습니다.",
     val hasDialerRole: Boolean,
     val canRequestDialerRole: Boolean,
@@ -56,7 +56,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val draftCallerText = MutableStateFlow("")
     private val latestReply = MutableStateFlow("")
-    private val latestReplySource = MutableStateFlow("No reply generated yet.")
+    private val latestReplySource = MutableStateFlow("아직 생성된 응답이 없습니다.")
     private val codexStatus = MutableStateFlow("Codex sign-in 후 access token을 연결하면 Codex 경로를 사용할 수 있습니다.")
     private val assistantHistory = MutableStateFlow(assistantSessionRepository.load())
 
@@ -180,7 +180,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val callerText = uiState.value.draftCallerText.trim()
             val response = assistantCoordinator.generateReply(callerText)
             latestReply.value = response.reply
-            latestReplySource.value = "Reply source: ${response.source}"
+            latestReplySource.value = "응답 엔진: ${response.source}"
             codexStatus.value = response.statusMessage
             assistantHistory.value = assistantSessionRepository.append(
                 AssistantExchange(

@@ -9,6 +9,6 @@ class AssistantCoordinatorTest {
         val reply = AssistantCoordinator.buildDemoReply("Can you take a message?")
 
         assertTrue(reply.contains("Can you take a message?"))
-        assertTrue(reply.contains("local fallback"))
+        assertTrue(reply.contains("Codex access token이 연결되지 않아"))
     }
 }

@@ -9,8 +9,8 @@ data class TelecomHistoryEntry(
 )
 
 data class TelecomSnapshot(
-    val latestCallSummary: String = "No Telecom events yet.",
-    val screeningSummary: String = "No screening decisions yet.",
+    val latestCallSummary: String = "아직 Telecom 이벤트가 없습니다.",
+    val screeningSummary: String = "아직 스크리닝 판정이 없습니다.",
     val hasActiveCall: Boolean = false,
     val recentEvents: List<TelecomHistoryEntry> = emptyList(),
     val testLabState: TelecomTestLabState = TelecomTestLabState(),
