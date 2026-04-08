@@ -13,6 +13,7 @@ data class TelecomSnapshot(
     val screeningSummary: String = "No screening decisions yet.",
     val hasActiveCall: Boolean = false,
     val recentEvents: List<TelecomHistoryEntry> = emptyList(),
+    val testLabState: TelecomTestLabState = TelecomTestLabState(),
 )
 
 enum class ScreeningDecision {
