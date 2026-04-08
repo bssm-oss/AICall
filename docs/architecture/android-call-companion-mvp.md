@@ -1,69 +1,81 @@
-# Android call companion MVP architecture
+# Android Call Companion MVP 아키텍처
 
-## Context
+## 맥락
 
-This project is intentionally scoped as a carrier-call companion. Telecom integration is real where Android supports it; speech and AI are demonstrated through a separate assistant flow that does not claim direct carrier-call media access.
+이 프로젝트는 의도적으로 **carrier-call companion** 범위에 맞춰져 있습니다. Android가 공식적으로 지원하는 Telecom 통합은 그대로 사용하고, speech/AI 경로는 별도 assistant 흐름으로 분리하여 직접적인 carrier-call media 접근을 구현했다고 주장하지 않습니다.
 
-## Main components
+## 주요 구성 요소
 
 ### MainActivity
 
-Hosts one Compose screen with three responsibilities:
+하나의 Compose 화면에서 다음 역할을 맡습니다.
 
-- show telecom role and latest call state
-- drive the assistant demo flow
-- edit backend/token settings
+- Telecom 역할 및 최신 call 상태 표시
+- assistant 흐름 구동
+- Codex sign-in / local engine 설정 제공
 
 ### TelecomEventStore
 
-Stores the latest call summary, screening summary, current active call reference, and the recent Telecom event timeline used by the UI.
+최신 call 요약, screening 요약, 현재 active call 참조, recent Telecom history를 관리합니다.
 
 ### TelecomHistoryRepository
 
-Persists the recent Telecom event timeline in shared preferences so the user can reopen the app and still inspect what happened during the most recent call and screening interactions.
+recent Telecom history를 shared preferences에 저장해 앱을 다시 열어도 최근 통화/screening 이벤트를 확인할 수 있게 합니다.
 
 ### CompanionInCallService
 
-Registers with Android Telecom and updates `TelecomEventStore` whenever a call is added, updated, or removed.
+Android Telecom에 등록되어 call 추가/갱신/제거 시 `TelecomEventStore`를 갱신합니다.
 
 ### CompanionCallScreeningService
 
-Evaluates a simple suffix-based screening rule and either allows the call or silences it. The policy is pure Kotlin so it can be unit-tested.
+단순 suffix 기반 screening 규칙을 적용하고, allow 또는 silence 결정을 내립니다. 규칙 자체는 pure Kotlin으로 분리되어 테스트 가능합니다.
 
 ### SpeechRecognizerManager
 
-Owns `SpeechRecognizer` lifecycle and exposes transcript/error state for the UI.
+`SpeechRecognizer` lifecycle을 관리하고 transcript / error 상태를 UI에 제공합니다.
 
 ### TextToSpeechManager
 
-Owns Android `TextToSpeech` and speaks the latest generated reply when the user asks for it.
+Android `TextToSpeech`를 관리하며, 생성된 최신 reply를 읽을 수 있게 합니다.
 
 ### AssistantCoordinator
 
-Calls a backend when a base URL and short-lived session token are configured. Otherwise, it returns a local fallback reply so the demo flow still works.
+assistant 생성 요청을 Codex-oriented path, local-engine placeholder, demo path 사이에서 라우팅합니다. 현재 저장소는 engine selection 상태, Codex sign-in 중심 UX, local-engine placeholder를 노출하여 Telecom 코드와 AI 경로를 분리합니다.
 
 ### AssistantSessionRepository
 
-Persists recent caller/reply exchanges in shared preferences so the user can reopen the app and still review what the assistant previously generated.
+recent caller/reply exchange를 저장해 앱 재시작 후에도 assistant history를 확인할 수 있게 합니다.
 
-## Data flow
+### NativeLocalLlmBridge
 
-1. `MainActivity` renders `MainUiState` from `MainViewModel`.
-2. `MainViewModel` combines settings, telecom state, speech state, and assistant outputs.
-3. Telecom services update `TelecomEventStore`.
-4. `TelecomEventStore` persists recent events through `TelecomHistoryRepository`.
-5. The assistant flow sends caller text to `AssistantCoordinator`.
-6. The generated exchange is persisted through `AssistantSessionRepository`.
-7. The reply is surfaced in the UI and optionally spoken locally or automatically when auto-speak is enabled.
+미래의 llama.cpp 경로를 위한 첫 Android-native 진입점입니다. 현재 구현은 JNI/CMake scaffold 수준이며, 실제 GGUF 추론 전체를 구현했다고 주장하지 않습니다.
 
-## Security posture
+## 데이터 흐름
 
-- The app stores only a backend session token, not a long-lived provider secret.
-- Codex/OpenAI authentication belongs on the backend.
-- The app’s local fallback reply makes the unsupported/unconfigured state obvious.
-- Assistant and Telecom histories are stored locally on-device for the user’s convenience.
+1. `MainActivity`가 `MainUiState`를 렌더링합니다.
+2. `MainViewModel`이 settings, telecom state, speech state, assistant history를 결합합니다.
+3. Telecom services가 `TelecomEventStore`를 갱신합니다.
+4. `TelecomEventStore`는 recent event를 `TelecomHistoryRepository`로 저장합니다.
+5. assistant 흐름이 caller text를 `AssistantCoordinator`에 전달합니다.
+6. `AssistantCoordinator`가 Codex/local/demo 경로로 요청을 분기합니다.
+7. 생성된 exchange는 `AssistantSessionRepository`를 통해 저장됩니다.
+8. reply는 UI에 표시되고, 필요하면 수동 또는 자동으로 TTS 재생됩니다.
 
-## Known architectural limits
+## 보안 관점
 
-- Active call references are held in memory for MVP simplicity.
-- Telecom behavior still requires physical-device validation.
+- 앱은 장기 보관용 provider secret를 저장하지 않습니다.
+- Codex/OpenAI 인증은 browser sign-in + manual access token paste 흐름 기준으로 정리되어 있으며, 앱은 장기 토큰을 피합니다.
+- local fallback reply를 통해 미구성 상태를 숨기지 않습니다.
+- assistant history와 Telecom history는 사용자 편의를 위해 로컬 on-device에 저장됩니다.
+
+## 인증 관점
+
+- 앱은 더 이상 사용자가 arbitrary backend URL을 입력하게 하지 않습니다.
+- 현재 UI는 공식 Codex 인증 개념(ChatGPT sign-in, API key, device-auth/headless 개념)에 맞춰 정리되어 있습니다.
+- Android 앱은 현재 `Open Codex sign-in` 진입점과 access token field를 노출하며, 구현된 handoff는 browser sign-in + manual access token paste입니다.
+
+## 알려진 아키텍처 한계
+
+- active call 참조는 MVP 단순성을 위해 메모리 기반입니다.
+- Telecom 동작은 여전히 physical-device validation이 더 필요합니다.
+- local llama.cpp 경로는 아직 native scaffold + model-selection surface 수준이며, 완전한 on-device inference 엔진은 아닙니다.

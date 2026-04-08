@@ -1,52 +1,63 @@
-# 2026-04-06 Android call companion MVP
+# 2026-04-06 Android Call Companion MVP 변경 기록
 
-## Background
+## 배경
 
-The repository started effectively empty. The requested product was a Kotlin phone-answering assistant using TTS, STT, and Codex-backed AI.
+저장소는 사실상 비어 있는 상태에서 시작했습니다. 목표는 Kotlin 기반의 전화 보조 앱이었고, TTS, STT, Codex 기반 AI 경로를 현실적인 Android 제약 안에서 정직하게 구현하는 것이었습니다.
 
-## Goal
+## 목표
 
-Create the smallest honest Android implementation that can be built and reasoned about without falsely claiming unsupported carrier-call audio automation.
+지원되지 않는 carrier-call audio automation을 구현한 것처럼 보이지 않으면서도, 실제로 빌드/검증/유지보수가 가능한 Android 구현을 만드는 것입니다.
 
-## What changed
+## 변경 내용
 
-- Added a new Android Kotlin project with Jetpack Compose.
-- Added `InCallService` and `CallScreeningService` integration points.
-- Added a simple Compose UI for telecom state, speech demo, and backend token configuration.
-- Added persistent recent Telecom history with an in-app clear action.
-- Added local STT and TTS wrappers.
-- Added persistent assistant exchange history and an auto-speak reply option.
-- Added a backend-compatible assistant client with a local fallback reply.
-- Added unit tests, CI, README, and AGENTS documentation.
+- Jetpack Compose 기반 Android Kotlin 프로젝트를 추가했습니다.
+- `InCallService`, `CallScreeningService` 연결 지점을 추가했습니다.
+- Telecom 상태, speech demo, Codex sign-in 지향 설정 UI를 추가했습니다.
+- recent Telecom history 저장/clear 기능을 추가했습니다.
+- local STT/TTS wrapper를 추가했습니다.
+- recent assistant exchange 저장/clear 기능과 auto-speak 옵션을 추가했습니다.
+- assistant engine selection, GGUF model selection UI, Android native bridge scaffold를 추가했습니다.
+- manual backend URL 요구사항을 제거하고 Codex sign-in oriented UX로 바꿨습니다.
+- 실제 carrier call 없이 앱 안에서 assistant, Codex/local 상태, 테스트 전용 fake Telecom 상태 전이를 점검할 수 있는 `테스트 랩` 섹션을 추가했습니다.
+- unit tests, CI, README, AGENTS 문서를 추가/정비했습니다.
 
-## Design rationale
+## 설계 이유
 
-Android telecom APIs support dialer-role UI and call screening, but they do not provide a documented third-party hook for autonomous carrier-call audio capture and injection. The implementation therefore separates telecom control from the STT/TTS demo flow and keeps provider credentials off-device.
+Android Telecom API는 dialer-role UI 및 screening은 지원하지만, 제3자 앱이 autonomous carrier-call audio capture/injection을 하는 공식 경로는 제공하지 않습니다. 따라서 Telecom 제어와 STT/TTS assistant 흐름을 분리하고, provider credential은 앱 밖에 두는 구조를 유지했습니다.
 
-## Impact
+## 영향 범위
 
-- The repository is now a buildable Android project.
-- The app can request dialer-role integration and expose honest telecom capability surfaces.
-- The app now preserves recent call and screening events across app restarts.
-- The assistant flow now preserves recent caller/reply exchanges and can automatically speak fresh replies.
-- Future work can layer on device-validated behavior without rewriting the foundation.
+- 저장소는 이제 빌드 가능한 Android 프로젝트가 되었습니다.
+- 앱은 dialer-role integration과 honest Telecom capability surface를 제공합니다.
+- recent call/screening history와 assistant history가 앱 재시작 후에도 유지됩니다.
+- local LLM을 위한 Android-native build path가 검증 가능한 수준으로 추가되었습니다.
+- 앱 표면은 이제 arbitrary backend URL 입력 대신 Codex OAuth-oriented entry flow를 반영합니다.
+- fake Telecom 이벤트는 `[TEST ONLY]` 기록과 별도 test-lab 상태로만 반영되어 실제 call handling과 분리됩니다.
+- `테스트 랩`에서 로컬 llama.cpp native bridge 상태를 직접 점검할 수 있고, `Local` 엔진 선택 시 호스트 Ollama의 `qwen2.5:1.5b` 모델을 통해 실제 응답 생성도 검증할 수 있습니다.
 
-## Verification
+## 검증
 
-- Build verification: `./gradlew assembleDebug` → pass
-- Test verification: `./gradlew testDebugUnitTest` → pass
-- Lint verification: `./gradlew lintDebug` → pass
-- Emulator smoke verification: debug APK installed and `MainActivity` launched successfully on `emulator-5554`
-- Telecom role and live incoming-call behavior still require deeper device validation.
+- `./gradlew assembleDebug` → pass
+- `./gradlew testDebugUnitTest` → pass
+- `./gradlew lintDebug` → pass
+- emulator에서 debug APK 설치 및 `MainActivity` launch → pass
+- emulator UI dump에서 `Open Codex sign-in`, `Paste token from clipboard`, `Codex access token`, `Select GGUF model`, 그리고 backend URL 제거 문구 확인
+- 앱 내 `테스트 랩`에서 가짜 수신/연결/종료와 가짜 screening 판정이 `[TEST ONLY]` history로 표시되는지 수동 확인 가능
+- 앱 내 `테스트 랩`에서 `모델 미선택 / Native: llama.cpp native bridge scaffold loaded` 상태가 표시되는지 수동 확인 가능
+- 앱 내 `테스트 랩`에서 `Local` 엔진 선택 후 실제 로컬 응답 생성 및 `최근 응답 엔진: Local` 렌더링 확인
+- emulator GSM incoming-call 시뮬레이션은 재현되었지만, 실제 Telecom routing은 `com.google.android.dialer` 쪽으로 향해 우리 `CompanionInCallService`에는 live in-call UI가 바인딩되지 않음을 logcat으로 확인
 
-## Remaining limitations
+## 남아 있는 한계
 
-- The current manual QA evidence is limited to emulator install and main-screen launch.
-- Codex/OpenAI integration depends on an external backend not included here.
-- Carrier-call media STT/TTS is intentionally not claimed.
+- 현재 manual QA 증거는 emulator install / launch / rendered UI dump 수준입니다.
+- emulator에서 실제 GSM incoming-call 시뮬레이션은 확인했지만, dialer role routing은 여전히 stock dialer가 소유합니다.
+- Codex/OpenAI sign-in은 browser/device-auth-oriented UI와 manual access-token paste 흐름까지 구현되었으며, Android-native callback/token exchange 자체를 구현했다고 주장하지는 않습니다.
+- carrier-call media STT/TTS는 의도적으로 구현했다고 주장하지 않습니다.
+- `테스트 랩`은 실제 dialer-role/platform 제약을 우회하지 않으며, test-only 상태 전이만 제공합니다.
+- local llama.cpp native scaffold는 아직 on-device GGUF inference 단계는 아니지만, 로컬 fallback 자체는 Ollama + `qwen2.5:1.5b`로 실제 응답을 생성할 수 있습니다.
 
-## Follow-up work
+## 후속 과제
 
-- Validate the dialer-role and call-control flow on hardware.
-- Add richer UI after real in-call behavior is proven.
-- Implement the backend session/token flow required for Codex-backed replies.
+- dialer-role / call-control 흐름을 hardware에서 더 깊게 검증합니다.
+- 필요하다면 Codex sign-in/session exchange를 공식 문서에 맞는 Android-native 흐름으로 확장합니다.
+- placeholder local engine을 실제 llama.cpp GGUF inference로 교체합니다.
