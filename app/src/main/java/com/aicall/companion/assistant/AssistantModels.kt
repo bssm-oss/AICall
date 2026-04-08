@@ -4,12 +4,20 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 data class AssistantSettings(
-    val backendBaseUrl: String = "",
-    val backendSessionToken: String = "",
+    val selectedEngine: AssistantEngine = AssistantEngine.Codex,
+    val codexAccessToken: String = "",
     val systemPrompt: String = DEFAULT_SYSTEM_PROMPT,
     val silenceNumberSuffix: String = "0000",
     val autoSpeakReplies: Boolean = false,
+    val localModelUri: String = "",
+    val localModelLabel: String = "",
 )
+
+enum class AssistantEngine {
+    Codex,
+    Local,
+    Demo,
+}
 
 @Serializable
 data class AssistantExchange(
@@ -26,7 +34,8 @@ data class AssistantResponse(
 )
 
 enum class ResponseSource {
-    Backend,
+    Codex,
+    Local,
     Demo,
 }
 
