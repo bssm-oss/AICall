@@ -55,6 +55,13 @@ object TelecomEventStore {
         appendHistory("Screening decision for $number: $decision")
     }
 
+    fun applyTestLabAction(action: TelecomTestLabAction) {
+        state.value = state.value.copy(
+            testLabState = state.value.testLabState.apply(action),
+        )
+        appendHistory(action.toHistoryMessage())
+    }
+
     fun answerActiveCall() {
         activeCall?.answer(VideoProfile.STATE_AUDIO_ONLY)
         appendHistory("Attempted to answer the active call.")
