@@ -108,6 +108,7 @@ class MainActivity : ComponentActivity() {
                     onAutoSpeakRepliesChange = viewModel::updateAutoSpeakReplies,
                     onSelectLocalModel = { localModelLauncher.launch(arrayOf("*/*")) },
                     onInspectLocalEngineStatus = viewModel::inspectLocalEngineStatus,
+                    onDownloadGemmaModel = viewModel::downloadGemmaModel,
                     onAnswerCall = viewModel::answerCall,
                     onRejectCall = viewModel::rejectCall,
                     onEndCall = viewModel::endCall,
@@ -136,6 +137,7 @@ private fun MainScreen(
     onAutoSpeakRepliesChange: (Boolean) -> Unit,
     onSelectLocalModel: () -> Unit,
     onInspectLocalEngineStatus: () -> Unit,
+    onDownloadGemmaModel: () -> Unit,
     onAnswerCall: () -> Unit,
     onRejectCall: () -> Unit,
     onEndCall: () -> Unit,
@@ -195,6 +197,9 @@ private fun MainScreen(
                 Text(state.localStatus, style = MaterialTheme.typography.bodySmall)
                 TextButton(onClick = onInspectLocalEngineStatus) {
                     Text("로컬 엔진 상태 점검")
+                }
+                TextButton(onClick = onDownloadGemmaModel) {
+                    Text("Gemma 4 다운로드")
                 }
                 HorizontalDivider()
                 Text("어시스턴트 흐름 검증", style = MaterialTheme.typography.titleMedium)
@@ -353,7 +358,7 @@ private fun MainScreen(
                     style = MaterialTheme.typography.bodySmall,
                 )
                 Text(
-                    "현재 앱은 로컬 Gemma 모델과 데모 엔진만 사용합니다.",
+                    "현재 앱은 로컬 Gemma 모델과 데모 엔진만 사용합니다. Gemma 4 모델은 앱 안에서 직접 다운로드할 수 있습니다.",
                     style = MaterialTheme.typography.bodySmall,
                 )
             }

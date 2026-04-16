@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.aicall.companion.assistant.AssistantCoordinator
 import com.aicall.companion.assistant.AssistantEngine
 import com.aicall.companion.assistant.AssistantExchange
+import com.aicall.companion.assistant.GemmaModelManager
 import com.aicall.companion.assistant.AssistantSettings
 import com.aicall.companion.assistant.AssistantSessionRepository
 import com.aicall.companion.assistant.AssistantSettingsRepository
@@ -132,6 +133,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun inspectLocalEngineStatus() {
         localStatus.value = assistantCoordinator.getLocalEngineStatus(settingsRepository.observe().value)
+    }
+
+    fun downloadGemmaModel() {
+        viewModelScope.launch {
+            localStatus.value = "Gemma 4 모델 다운로드를 시작합니다..."
+            GemmaModelManager.downloadModel(getApplication()) { progress ->
+                localStatus.value = "Gemma 4 다운로드 중... $progress%"
+            }.onSuccess {
+                localStatus.value = "Gemma 4 모델 다운로드가 완료되었습니다. 이제 실제 기기에서 LiteRT-LM 로컬 경로를 시도할 수 있습니다."
+            }.onFailure { error ->
+                localStatus.value = "Gemma 4 모델 다운로드 실패: ${error.message}"
+            }
+        }
     }
 
     fun startSpeechRecognition() {
