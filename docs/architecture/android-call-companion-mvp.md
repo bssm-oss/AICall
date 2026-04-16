@@ -12,7 +12,7 @@
 
 - Telecom 역할 및 최신 call 상태 표시
 - assistant 흐름 구동
-- 로컬 engine 설정 제공
+- Gemma 4 다운로드와 로컬 engine 설정 제공
 
 ### TelecomEventStore
 
@@ -40,7 +40,7 @@ Android `TextToSpeech`를 관리하며, 생성된 최신 reply를 읽을 수 있
 
 ### AssistantCoordinator
 
-assistant 생성 요청을 local-engine path와 demo path 사이에서 라우팅합니다. 현재 저장소는 engine selection 상태와 local-engine placeholder를 노출하여 Telecom 코드와 AI 경로를 분리합니다.
+assistant 생성 요청을 앱 다운로드 Gemma 경로, host Ollama fallback, demo path 사이에서 라우팅합니다. 현재 저장소는 engine selection 상태와 local-engine runtime 분리를 통해 Telecom 코드와 AI 경로를 분리합니다.
 
 ### AssistantSessionRepository
 
@@ -70,8 +70,8 @@ recent caller/reply exchange를 저장해 앱 재시작 후에도 assistant hist
 
 ## 로컬 엔진 관점
 
-- 앱은 현재 host Ollama의 `gemma3:4b`를 기본 로컬 모델로 사용합니다.
-- emulator/개발 환경에서는 `10.0.2.2:11434`를 통해 로컬 모델 서버에 접근합니다.
+- 앱은 Gemma 4 LiteRT-LM 모델을 앱 내부에 다운로드/저장할 수 있는 경로를 가집니다.
+- emulator/개발 환경에서는 `10.0.2.2:11434`를 통해 host Ollama의 `gemma3:4b` fallback을 사용해 실제 응답 생성까지 검증합니다.
 - GGUF 선택 UI와 `NativeLocalLlmBridge`는 향후 on-device llama.cpp 경로를 위한 scaffold입니다.
 
 ## 알려진 아키텍처 한계
