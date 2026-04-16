@@ -2,7 +2,6 @@ package com.aicall.companion
 
 import android.Manifest
 import android.app.role.RoleManager
-import android.content.ClipboardManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -79,9 +78,6 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                 }
-                val codexAuthUri = Uri.parse("https://developers.openai.com/codex/auth")
-                val clipboardManager = getSystemService(ClipboardManager::class.java)
-
                 LaunchedEffect(Unit) {
                     viewModel.refreshCapabilities()
                 }
@@ -107,25 +103,10 @@ class MainActivity : ComponentActivity() {
                     onClearAssistantHistory = viewModel::clearAssistantHistory,
                     onDraftChange = viewModel::updateDraftCallerText,
                     onSelectedEngineChange = viewModel::updateSelectedEngine,
-                    onCodexAccessTokenChange = viewModel::updateCodexAccessToken,
                     onSystemPromptChange = viewModel::updateSystemPrompt,
                     onSilenceSuffixChange = viewModel::updateSilenceSuffix,
                     onAutoSpeakRepliesChange = viewModel::updateAutoSpeakReplies,
                     onSelectLocalModel = { localModelLauncher.launch(arrayOf("*/*")) },
-                    onOpenCodexAuth = {
-                        startActivity(Intent(Intent.ACTION_VIEW, codexAuthUri))
-                    },
-                    onPasteCodexToken = {
-                        val clipText = clipboardManager?.primaryClip
-                            ?.takeIf { it.itemCount > 0 }
-                            ?.getItemAt(0)
-                            ?.coerceToText(this)
-                            ?.toString()
-                            .orEmpty()
-                        if (clipText.isNotBlank()) {
-                            viewModel.updateCodexAccessToken(clipText)
-                        }
-                    },
                     onInspectLocalEngineStatus = viewModel::inspectLocalEngineStatus,
                     onAnswerCall = viewModel::answerCall,
                     onRejectCall = viewModel::rejectCall,
@@ -150,13 +131,10 @@ private fun MainScreen(
     onClearAssistantHistory: () -> Unit,
     onDraftChange: (String) -> Unit,
     onSelectedEngineChange: (AssistantEngine) -> Unit,
-    onCodexAccessTokenChange: (String) -> Unit,
     onSystemPromptChange: (String) -> Unit,
     onSilenceSuffixChange: (String) -> Unit,
     onAutoSpeakRepliesChange: (Boolean) -> Unit,
     onSelectLocalModel: () -> Unit,
-    onOpenCodexAuth: () -> Unit,
-    onPasteCodexToken: () -> Unit,
     onInspectLocalEngineStatus: () -> Unit,
     onAnswerCall: () -> Unit,
     onRejectCall: () -> Unit,
@@ -181,7 +159,7 @@ private fun MainScreen(
 
             StatusCard(
                 title = "테스트 랩",
-                body = "실제 carrier call 없이 앱 안에서 assistant, Codex token, 로컬 모델 선택 상태, 테스트 전용 Telecom 이벤트를 점검합니다. 아래 Telecom 버튼은 [TEST ONLY] 기록만 남기며 실제 통화 처리에는 연결되지 않습니다.",
+                body = "실제 carrier call 없이 앱 안에서 assistant, 로컬 모델 선택 상태, 테스트 전용 Telecom 이벤트를 점검합니다. 아래 Telecom 버튼은 [TEST ONLY] 기록만 남기며 실제 통화 처리에는 연결되지 않습니다.",
             ) {
                 Text("테스트 전용 Telecom 상태", style = MaterialTheme.typography.titleMedium)
                 Text(state.telecomSnapshot.testLabState.latestCallSummary)
@@ -213,9 +191,8 @@ private fun MainScreen(
                 HorizontalDivider()
                 Text("엔진 점검", style = MaterialTheme.typography.titleMedium)
                 Text("선택 엔진: ${state.settings.selectedEngine.toKoreanLabel()}")
-                Text("Codex 토큰: ${state.settings.codexAccessToken.toMaskedTokenSummary()}")
                 Text("로컬 모델: ${state.settings.localModelLabel.ifBlank { "선택된 GGUF 모델 없음" }}")
-                Text(state.codexStatus, style = MaterialTheme.typography.bodySmall)
+                Text(state.localStatus, style = MaterialTheme.typography.bodySmall)
                 TextButton(onClick = onInspectLocalEngineStatus) {
                     Text("로컬 엔진 상태 점검")
                 }
@@ -329,8 +306,8 @@ private fun MainScreen(
             }
 
             StatusCard(
-                title = "Codex 로그인과 로컬 엔진 설정",
-                body = state.codexStatus,
+                title = "로컬 엔진 설정",
+                body = state.localStatus,
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     AssistantEngine.entries.forEach { engine ->
@@ -340,7 +317,6 @@ private fun MainScreen(
                             label = {
                                 Text(
                                     when (engine) {
-                                        AssistantEngine.Codex -> "Codex"
                                         AssistantEngine.Local -> "로컬"
                                         AssistantEngine.Demo -> "데모"
                                     }
@@ -349,19 +325,6 @@ private fun MainScreen(
                         )
                     }
                 }
-                Button(onClick = onOpenCodexAuth) {
-                    Text("Codex 로그인 열기")
-                }
-                TextButton(onClick = onPasteCodexToken) {
-                    Text("클립보드에서 토큰 붙여넣기")
-                }
-                OutlinedTextField(
-                    value = state.settings.codexAccessToken,
-                    onValueChange = onCodexAccessTokenChange,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Codex access token") },
-                    placeholder = { Text("ChatGPT/Codex access token 붙여넣기") },
-                )
                 OutlinedTextField(
                     value = state.settings.systemPrompt,
                     onValueChange = onSystemPromptChange,
@@ -390,7 +353,7 @@ private fun MainScreen(
                     style = MaterialTheme.typography.bodySmall,
                 )
                 Text(
-                    "백엔드 URL은 더 이상 직접 입력하지 않습니다. Codex 브라우저 sign-in 후 얻은 access token을 앱에 붙여넣어 사용하는 흐름을 지원합니다.",
+                    "Codex 경로는 제거되었습니다. 현재 앱은 로컬 Gemma 모델과 데모 엔진만 사용합니다.",
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
@@ -420,23 +383,12 @@ private fun StatusCard(
 }
 
 private fun AssistantEngine.toKoreanLabel(): String = when (this) {
-    AssistantEngine.Codex -> "Codex"
     AssistantEngine.Local -> "로컬"
     AssistantEngine.Demo -> "데모"
 }
 
-private fun String.toMaskedTokenSummary(): String {
-    val trimmed = trim()
-    if (trimmed.isBlank()) {
-        return "미연결"
-    }
-    val suffix = trimmed.takeLast(4)
-    return "연결됨 (끝 4자리: $suffix)"
-}
-
 private fun String.toKoreanReplySource(): String = when {
     isBlank() || this == "아직 생성된 응답이 없습니다." -> "아직 없음"
-    contains("Codex") -> "Codex"
     contains("Local") || contains("로컬") -> "로컬"
     contains("Demo") || contains("데모") -> "데모"
     else -> this
