@@ -4,8 +4,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 data class AssistantSettings(
-    val selectedEngine: AssistantEngine = AssistantEngine.Codex,
-    val codexAccessToken: String = "",
+    val selectedEngine: AssistantEngine = AssistantEngine.Local,
     val systemPrompt: String = DEFAULT_SYSTEM_PROMPT,
     val silenceNumberSuffix: String = "0000",
     val autoSpeakReplies: Boolean = false,
@@ -14,7 +13,6 @@ data class AssistantSettings(
 )
 
 enum class AssistantEngine {
-    Codex,
     Local,
     Demo,
 }
@@ -34,7 +32,6 @@ data class AssistantResponse(
 )
 
 enum class ResponseSource {
-    Codex,
     Local,
     Demo,
 }
