@@ -15,7 +15,6 @@ class AssistantSettingsRepository(context: Context) {
         val updated = transform(state.value)
         prefs.edit()
             .putString(KEY_SELECTED_ENGINE, updated.selectedEngine.name)
-            .putString(KEY_CODEX_ACCESS_TOKEN, updated.codexAccessToken)
             .putString(KEY_SYSTEM_PROMPT, updated.systemPrompt)
             .putString(KEY_SILENCE_SUFFIX, updated.silenceNumberSuffix)
             .putBoolean(KEY_AUTO_SPEAK_REPLIES, updated.autoSpeakReplies)
@@ -26,10 +25,9 @@ class AssistantSettingsRepository(context: Context) {
     }
 
     private fun readSettings(): AssistantSettings = AssistantSettings(
-        selectedEngine = prefs.getString(KEY_SELECTED_ENGINE, AssistantEngine.Codex.name)
-            ?.let { runCatching { AssistantEngine.valueOf(it) }.getOrDefault(AssistantEngine.Codex) }
-            ?: AssistantEngine.Codex,
-        codexAccessToken = prefs.getString(KEY_CODEX_ACCESS_TOKEN, "").orEmpty(),
+        selectedEngine = prefs.getString(KEY_SELECTED_ENGINE, AssistantEngine.Local.name)
+            ?.let { runCatching { AssistantEngine.valueOf(it) }.getOrDefault(AssistantEngine.Local) }
+            ?: AssistantEngine.Local,
         systemPrompt = prefs.getString(KEY_SYSTEM_PROMPT, DEFAULT_SYSTEM_PROMPT).orEmpty(),
         silenceNumberSuffix = prefs.getString(KEY_SILENCE_SUFFIX, "0000").orEmpty(),
         autoSpeakReplies = prefs.getBoolean(KEY_AUTO_SPEAK_REPLIES, false),
@@ -40,7 +38,6 @@ class AssistantSettingsRepository(context: Context) {
     private companion object {
         const val PREFS_NAME = "assistant_settings"
         const val KEY_SELECTED_ENGINE = "selected_engine"
-        const val KEY_CODEX_ACCESS_TOKEN = "codex_access_token"
         const val KEY_SYSTEM_PROMPT = "system_prompt"
         const val KEY_SILENCE_SUFFIX = "silence_suffix"
         const val KEY_AUTO_SPEAK_REPLIES = "auto_speak_replies"

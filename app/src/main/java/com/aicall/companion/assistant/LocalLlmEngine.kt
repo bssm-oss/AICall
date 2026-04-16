@@ -91,7 +91,7 @@ class PlaceholderLocalLlmEngine(
 
     companion object {
         private const val DEFAULT_OLLAMA_URL = "http://10.0.2.2:11434/api/generate"
-        private const val DEFAULT_OLLAMA_MODEL = "qwen2.5:1.5b"
+        private const val DEFAULT_OLLAMA_MODEL = "gemma3:4b"
 
         internal fun buildLocalPrompt(systemPrompt: String, callerText: String): String {
             return "$systemPrompt\n\nCaller text:\n$callerText"
