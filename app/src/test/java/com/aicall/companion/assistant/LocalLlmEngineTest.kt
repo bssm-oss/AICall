@@ -9,14 +9,14 @@ import org.junit.Test
 
 class LocalLlmEngineTest {
     @Test
-    fun `engine status includes default qwen model and native status`() {
+    fun `engine status includes default gemma model and native status`() {
         val engine = PlaceholderLocalLlmEngine(nativeStatusProvider = { "native bridge ready" })
 
         val status = engine.getEngineStatus(
             AssistantSettings(selectedEngine = AssistantEngine.Local),
         )
 
-        assertTrue(status.contains("qwen2.5:1.5b"))
+        assertTrue(status.contains("gemma3:4b"))
         assertTrue(status.contains("native bridge ready"))
     }
 
@@ -40,7 +40,7 @@ class LocalLlmEngineTest {
         }
 
         assertTrue(response.reply.contains("로컬 응답"))
-        assertTrue(response.statusMessage.contains("qwen2.5:1.5b"))
+        assertTrue(response.statusMessage.contains("gemma3:4b"))
 
         server.shutdown()
     }
