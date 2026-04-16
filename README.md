@@ -12,7 +12,7 @@ AI Call Companion은 Android Kotlin 기반의 AI 통화 동반 앱입니다. 현
 - 간단한 메타데이터 기반 통화 screening 규칙 적용
 - AI 응답 제안 생성
 - STT/TTS 보조 흐름 시험
-- 이후 Codex 경로나 로컬 LLM 경로로 확장 가능한 구조 유지
+- 이후 로컬 LLM 경로로 확장 가능한 구조 유지
 
 ## 핵심 기능
 
@@ -20,14 +20,13 @@ AI Call Companion은 Android Kotlin 기반의 AI 통화 동반 앱입니다. 현
 - `InCallService`, `CallScreeningService` 스켈레톤 연결
 - 활성 Telecom call에 대한 answer / reject / hang-up 훅
 - 앱 내 recent Telecom history 저장 및 clear 기능
-- 앱 내 `테스트 랩` 섹션에서 assistant/Codex/local 상태와 테스트 전용 Telecom 이벤트 점검
+- 앱 내 `테스트 랩` 섹션에서 assistant/local 상태와 테스트 전용 Telecom 이벤트 점검
 - `SpeechRecognizer` 기반 로컬 STT
 - Android `TextToSpeech` 기반 로컬 TTS
-- Codex sign-in 버튼 + access token 입력 흐름
-- Codex access token 미연결 시 local fallback reply
+- 기본 로컬 Gemma 응답 경로
 - assistant exchange history 저장 및 clear 기능
 - 새 reply 자동 읽기(auto-speak) 옵션
-- assistant engine 선택 구조(`Codex`, `Local`, `Demo`)
+- assistant engine 선택 구조(`Local`, `Demo`)
 - GGUF 모델 선택 UI 및 로컬 llama.cpp native bridge scaffold
 
 ## 기술 스택
@@ -60,19 +59,16 @@ export JAVA_HOME="/Users/heodongun/Library/Java/JavaVirtualMachines/corretto-17.
 ./gradlew assembleDebug
 ```
 
-## 환경 및 Codex 설정
+## 환경 및 로컬 모델 설정
 
-앱은 장기 보관용 OpenAI/Codex secret를 저장하지 않습니다. 현재 앱이 직접 보관하는 값은 아래 수준입니다.
+앱은 현재 Codex 경로를 제거하고 로컬 Gemma 경로를 기본으로 사용합니다. 현재 앱이 직접 보관하는 값은 아래 수준입니다.
 
-- `Codex access token`
 - `System prompt`
 - `Silence screening suffix`
 - assistant engine 선택값
 - local GGUF model 선택 정보
 
-현재 앱 화면은 backend URL 직접 입력 대신 Codex sign-in 중심 흐름을 먼저 노출합니다. 사용자는 `Open Codex sign-in` 버튼으로 브라우저 sign-in 흐름을 열고, 브라우저 또는 신뢰 가능한 Codex 클라이언트에서 얻은 access token을 앱에 붙여넣어 사용합니다.
-
-이 저장소가 현재 구현한 최종 handoff는 **browser sign-in + manual access token paste**입니다. 즉, Android-native callback/token exchange를 직접 구현한 것은 아니며, 공식 문서 범위 안에서 안전한 수동 handoff를 현재 지원 방식으로 사용합니다.
+현재 앱의 기본 AI 경로는 host Ollama를 통한 로컬 Gemma 모델 응답입니다. emulator/개발 환경에서는 `10.0.2.2:11434`를 통해 로컬 모델 서버에 접근합니다.
 
 ## 로컬 LLM 경로
 
@@ -83,7 +79,7 @@ export JAVA_HOME="/Users/heodongun/Library/Java/JavaVirtualMachines/corretto-17.
 - Android NDK / CMake 기반 native bridge scaffold 포함
 - 현재는 실제 llama.cpp 추론 전체 연결 전 단계이므로, local engine은 준비 상태 및 파일 선택 상태를 안전하게 표현하는 수준입니다
 
-권장 모델 후보로는 **Qwen2.5 1.5B GGUF 계열**을 염두에 두고 있으며, 실제 모델 배포/로딩 방식은 local APK 번들보다 외부 다운로드 또는 앱 private storage 적재가 더 현실적입니다.
+현재 기본 로컬 모델은 **gemma3:4b**이며, host Ollama에 해당 모델이 준비되어 있으면 앱 안에서 실제 응답 생성이 가능합니다. GGUF 파일 선택 UI와 native bridge는 향후 on-device llama.cpp 경로를 위한 scaffold로 유지됩니다.
 
 ## 로컬 실행 및 검증
 
@@ -112,13 +108,13 @@ export JAVA_HOME="/Users/heodongun/Library/Java/JavaVirtualMachines/corretto-17.
 
 1. 앱을 열고 기본 다이얼러 역할 요청 상태를 확인합니다.
 2. 현재 call / screening 상태와 recent Telecom history를 확인합니다.
-3. 필요하면 `테스트 랩`에서 가짜 Telecom 상태, Codex token 연결 여부, 로컬 모델 선택 상태, 로컬 엔진 native bridge 상태를 실제 통화 없이 점검합니다.
+3. 필요하면 `테스트 랩`에서 가짜 Telecom 상태, 로컬 모델 선택 상태, 로컬 엔진 native bridge 상태를 실제 통화 없이 점검합니다.
 4. 필요하면 마이크 권한을 부여합니다.
 5. STT를 통해 caller text를 얻거나 직접 입력합니다.
-6. assistant engine(`Codex`, `Local`, `Demo`)을 선택합니다.
+6. assistant engine(`Local`, `Demo`)을 선택합니다.
 7. reply를 생성하고 즉시 읽거나(auto-speak), 수동으로 TTS 재생합니다.
 8. recent assistant history를 검토합니다.
-9. Codex sign-in / access token / local GGUF model 선택 상태를 조정합니다.
+9. 로컬 모델 / GGUF 참고값 / 시스템 프롬프트 상태를 조정합니다.
 
 ## 프로젝트 구조
 
@@ -139,13 +135,13 @@ docs/
 
 ## 아키텍처 개요
 
-- `MainActivity`는 Telecom 상태, assistant 흐름, Codex sign-in / local engine 설정을 하나의 Compose 화면에서 제공합니다.
+- `MainActivity`는 Telecom 상태, assistant 흐름, local engine 설정을 하나의 Compose 화면에서 제공합니다.
 - `MainActivity`는 별도의 `테스트 랩` 카드에서 테스트 전용 fake Telecom 상태와 assistant 검증 진입점, 로컬 엔진 상태 점검을 함께 제공합니다.
 - `MainViewModel`은 settings, telecom state, speech state, assistant history를 결합해 UI 상태를 만듭니다.
 - `TelecomEventStore`는 최신 call/screening 상태와 recent Telecom history를 관리합니다.
 - `CompanionInCallService`, `CompanionCallScreeningService`는 Android Telecom 연결 지점입니다.
 - `SpeechRecognizerManager`, `TextToSpeechManager`는 device speech integration을 담당합니다.
-- `AssistantCoordinator`는 Codex / local / demo engine 경로를 라우팅하는 중심 포인트입니다.
+- `AssistantCoordinator`는 local / demo engine 경로를 라우팅하는 중심 포인트입니다.
 - `AssistantSessionRepository`는 recent caller/reply exchange를 보존합니다.
 - `NativeLocalLlmBridge`와 `app/src/main/cpp/`는 llama.cpp 연동을 위한 native scaffold입니다.
 
@@ -176,14 +172,12 @@ GitHub Actions는 push / pull_request에서 다음을 실행합니다.
 - emulator에서 GSM incoming-call 시뮬레이션 자체는 확인했지만, 이 이미지에서는 `com.google.android.dialer`가 dialer/in-call routing을 계속 유지해 우리 앱의 `CompanionInCallService`까지 실제 통화 UI가 전달되지는 않았습니다.
 - assistant history는 생성된 exchange 기록이지, live carrier-call audio transcription이 아닙니다.
 - `테스트 랩`의 fake Telecom 이벤트는 앱 내부 검증용 상태 전이일 뿐이며, 실제 carrier call 생성/제어를 의미하지 않습니다.
-- `테스트 랩`의 로컬 엔진 상태 점검은 native bridge/모델 선택 상태를 보여주고, `Local` 엔진 선택 시 호스트 Ollama의 `qwen2.5:1.5b` 모델로 실제 응답 생성까지 검증합니다.
+- `테스트 랩`의 로컬 엔진 상태 점검은 native bridge/모델 선택 상태를 보여주고, `Local` 엔진 선택 시 호스트 Ollama의 `gemma3:4b` 모델로 실제 응답 생성까지 검증합니다.
 - 앱은 직접 carrier-call media를 캡처하거나 주입하지 않습니다.
-- Codex/OpenAI login 경로는 browser sign-in + manual access-token paste handoff를 지원합니다.
-- local llama.cpp native scaffold는 유지되고 있으며, 현재 로컬 fallback 자체는 호스트 Ollama의 `qwen2.5:1.5b` 모델로 실제 응답을 생성할 수 있습니다.
+- local llama.cpp native scaffold는 유지되고 있으며, 현재 로컬 fallback 자체는 호스트 Ollama의 `gemma3:4b` 모델로 실제 응답을 생성할 수 있습니다.
 
 ## 로드맵
 
-- 필요하다면 Codex login UX를 Android-native OAuth/session flow로 확장
 - local llama.cpp native bridge를 실제 on-device GGUF inference로 확장
 - physical device에서 dialer role / screening / call control 검증 강화
 - 한국어 문서와 릴리즈 노트를 계속 실제 동작과 동기화
