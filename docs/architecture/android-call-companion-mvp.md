@@ -64,7 +64,7 @@ recent caller/reply exchange를 저장해 앱 재시작 후에도 assistant hist
 ## 보안 관점
 
 - 앱은 장기 보관용 provider secret를 저장하지 않습니다.
-- 앱은 현재 Codex 경로를 제거하고 로컬 Gemma 경로를 우선 사용합니다.
+- 앱은 현재 로컬 Gemma 경로를 우선 사용합니다.
 - local fallback reply를 통해 미구성 상태를 숨기지 않습니다.
 - assistant history와 Telecom history는 사용자 편의를 위해 로컬 on-device에 저장됩니다.
 
