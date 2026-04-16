@@ -12,7 +12,7 @@ class AssistantSessionRepositoryTest {
 
         val updated = AssistantSessionRepository.appendEntry(
             existing = existing,
-            entry = AssistantExchange("2026-04-07 12:01:00", "Newest", "New reply", "Codex"),
+            entry = AssistantExchange("2026-04-07 12:01:00", "Newest", "New reply", "로컬"),
             maxEntries = 5,
         )
 
@@ -30,7 +30,7 @@ class AssistantSessionRepositoryTest {
 
         val updated = AssistantSessionRepository.appendEntry(
             existing = existing,
-            entry = AssistantExchange("4", "four", "reply4", "Codex"),
+            entry = AssistantExchange("4", "four", "reply4", "로컬"),
             maxEntries = 3,
         )
 
