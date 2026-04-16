@@ -61,7 +61,7 @@ export JAVA_HOME="/Users/heodongun/Library/Java/JavaVirtualMachines/corretto-17.
 
 ## 환경 및 로컬 모델 설정
 
-앱은 현재 Codex 경로를 제거하고 로컬 Gemma 경로를 기본으로 사용합니다. 현재 앱이 직접 보관하는 값은 아래 수준입니다.
+앱은 현재 로컬 Gemma 경로를 기본으로 사용합니다. 현재 앱이 직접 보관하는 값은 아래 수준입니다.
 
 - `System prompt`
 - `Silence screening suffix`
