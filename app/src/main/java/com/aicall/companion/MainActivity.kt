@@ -353,7 +353,7 @@ private fun MainScreen(
                     style = MaterialTheme.typography.bodySmall,
                 )
                 Text(
-                    "Codex 경로는 제거되었습니다. 현재 앱은 로컬 Gemma 모델과 데모 엔진만 사용합니다.",
+                    "현재 앱은 로컬 Gemma 모델과 데모 엔진만 사용합니다.",
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
