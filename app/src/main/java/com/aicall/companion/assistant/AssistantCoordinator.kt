@@ -2,7 +2,7 @@ package com.aicall.companion.assistant
 
 class AssistantCoordinator(
     private val settingsRepository: AssistantSettingsRepository? = null,
-    private val localLlmEngine: LocalLlmEngine = PlaceholderLocalLlmEngine(),
+    private val localLlmEngine: LocalLlmEngine,
     private val settingsProvider: (() -> AssistantSettings)? = null,
 ) {
     fun getLocalEngineStatus(settings: AssistantSettings): String {
