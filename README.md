@@ -68,7 +68,10 @@ export JAVA_HOME="/Users/heodongun/Library/Java/JavaVirtualMachines/corretto-17.
 - assistant engine 선택값
 - local GGUF model 선택 정보
 
-현재 앱의 기본 AI 경로는 host Ollama를 통한 로컬 Gemma 모델 응답입니다. emulator/개발 환경에서는 `10.0.2.2:11434`를 통해 로컬 모델 서버에 접근합니다.
+현재 앱은 두 가지 로컬 Gemma 경로를 가집니다.
+
+- **앱 관리 Gemma 4 다운로드 경로**: 앱 안에서 `Gemma 4 다운로드`를 눌러 LiteRT-LM 모델을 직접 내려받습니다.
+- **개발/에뮬레이터 fallback 경로**: emulator/개발 환경에서는 `10.0.2.2:11434`를 통해 host Ollama의 Gemma 모델에 접근합니다.
 
 ## 로컬 LLM 경로
 
@@ -79,7 +82,7 @@ export JAVA_HOME="/Users/heodongun/Library/Java/JavaVirtualMachines/corretto-17.
 - Android NDK / CMake 기반 native bridge scaffold 포함
 - 현재는 실제 llama.cpp 추론 전체 연결 전 단계이므로, local engine은 준비 상태 및 파일 선택 상태를 안전하게 표현하는 수준입니다
 
-현재 기본 로컬 모델은 **gemma3:4b**이며, host Ollama에 해당 모델이 준비되어 있으면 앱 안에서 실제 응답 생성이 가능합니다. GGUF 파일 선택 UI와 native bridge는 향후 on-device llama.cpp 경로를 위한 scaffold로 유지됩니다.
+앱 안에서는 `Gemma 4 다운로드` 버튼으로 **Gemma 4 LiteRT-LM** 모델을 직접 내려받을 수 있습니다. 다만 현재 emulator에서 실제 응답 생성까지 검증한 경로는 host Ollama의 **gemma3:4b** fallback입니다. GGUF 파일 선택 UI와 native bridge는 향후 on-device llama.cpp 경로를 위한 scaffold로 유지됩니다.
 
 ## 로컬 실행 및 검증
 
@@ -135,13 +138,13 @@ docs/
 
 ## 아키텍처 개요
 
-- `MainActivity`는 Telecom 상태, assistant 흐름, local engine 설정을 하나의 Compose 화면에서 제공합니다.
+- `MainActivity`는 Telecom 상태, assistant 흐름, Gemma 4 다운로드/로컬 engine 설정을 하나의 Compose 화면에서 제공합니다.
 - `MainActivity`는 별도의 `테스트 랩` 카드에서 테스트 전용 fake Telecom 상태와 assistant 검증 진입점, 로컬 엔진 상태 점검을 함께 제공합니다.
 - `MainViewModel`은 settings, telecom state, speech state, assistant history를 결합해 UI 상태를 만듭니다.
 - `TelecomEventStore`는 최신 call/screening 상태와 recent Telecom history를 관리합니다.
 - `CompanionInCallService`, `CompanionCallScreeningService`는 Android Telecom 연결 지점입니다.
 - `SpeechRecognizerManager`, `TextToSpeechManager`는 device speech integration을 담당합니다.
-- `AssistantCoordinator`는 local / demo engine 경로를 라우팅하는 중심 포인트입니다.
+- `AssistantCoordinator`는 앱 다운로드 Gemma 경로, host Ollama fallback, demo 경로를 조정하는 중심 포인트입니다.
 - `AssistantSessionRepository`는 recent caller/reply exchange를 보존합니다.
 - `NativeLocalLlmBridge`와 `app/src/main/cpp/`는 llama.cpp 연동을 위한 native scaffold입니다.
 
@@ -172,9 +175,9 @@ GitHub Actions는 push / pull_request에서 다음을 실행합니다.
 - emulator에서 GSM incoming-call 시뮬레이션 자체는 확인했지만, 이 이미지에서는 `com.google.android.dialer`가 dialer/in-call routing을 계속 유지해 우리 앱의 `CompanionInCallService`까지 실제 통화 UI가 전달되지는 않았습니다.
 - assistant history는 생성된 exchange 기록이지, live carrier-call audio transcription이 아닙니다.
 - `테스트 랩`의 fake Telecom 이벤트는 앱 내부 검증용 상태 전이일 뿐이며, 실제 carrier call 생성/제어를 의미하지 않습니다.
-- `테스트 랩`의 로컬 엔진 상태 점검은 native bridge/모델 선택 상태를 보여주고, `Local` 엔진 선택 시 호스트 Ollama의 `gemma3:4b` 모델로 실제 응답 생성까지 검증합니다.
+- `테스트 랩`과 설정 카드에서는 native bridge/모델 선택/다운로드 상태를 보여주고, `Local` 엔진 선택 시 emulator에서는 host Ollama의 `gemma3:4b` 모델로 실제 응답 생성까지 검증합니다.
 - 앱은 직접 carrier-call media를 캡처하거나 주입하지 않습니다.
-- local llama.cpp native scaffold는 유지되고 있으며, 현재 로컬 fallback 자체는 호스트 Ollama의 `gemma3:4b` 모델로 실제 응답을 생성할 수 있습니다.
+- local llama.cpp native scaffold는 유지되고 있으며, 현재 실제 로컬 fallback 자체는 호스트 Ollama의 `gemma3:4b` 모델로 응답을 생성하고, 앱 내부에는 Gemma 4 다운로드 경로가 추가되어 있습니다.
 
 ## 로드맵
 
