@@ -12,7 +12,7 @@
 
 - Telecom 역할 및 최신 call 상태 표시
 - assistant 흐름 구동
-- Codex sign-in / local engine 설정 제공
+- 로컬 engine 설정 제공
 
 ### TelecomEventStore
 
@@ -40,7 +40,7 @@ Android `TextToSpeech`를 관리하며, 생성된 최신 reply를 읽을 수 있
 
 ### AssistantCoordinator
 
-assistant 생성 요청을 Codex-oriented path, local-engine placeholder, demo path 사이에서 라우팅합니다. 현재 저장소는 engine selection 상태, Codex sign-in 중심 UX, local-engine placeholder를 노출하여 Telecom 코드와 AI 경로를 분리합니다.
+assistant 생성 요청을 local-engine path와 demo path 사이에서 라우팅합니다. 현재 저장소는 engine selection 상태와 local-engine placeholder를 노출하여 Telecom 코드와 AI 경로를 분리합니다.
 
 ### AssistantSessionRepository
 
@@ -57,22 +57,22 @@ recent caller/reply exchange를 저장해 앱 재시작 후에도 assistant hist
 3. Telecom services가 `TelecomEventStore`를 갱신합니다.
 4. `TelecomEventStore`는 recent event를 `TelecomHistoryRepository`로 저장합니다.
 5. assistant 흐름이 caller text를 `AssistantCoordinator`에 전달합니다.
-6. `AssistantCoordinator`가 Codex/local/demo 경로로 요청을 분기합니다.
+6. `AssistantCoordinator`가 local/demo 경로로 요청을 분기합니다.
 7. 생성된 exchange는 `AssistantSessionRepository`를 통해 저장됩니다.
 8. reply는 UI에 표시되고, 필요하면 수동 또는 자동으로 TTS 재생됩니다.
 
 ## 보안 관점
 
 - 앱은 장기 보관용 provider secret를 저장하지 않습니다.
-- Codex/OpenAI 인증은 browser sign-in + manual access token paste 흐름 기준으로 정리되어 있으며, 앱은 장기 토큰을 피합니다.
+- 앱은 현재 Codex 경로를 제거하고 로컬 Gemma 경로를 우선 사용합니다.
 - local fallback reply를 통해 미구성 상태를 숨기지 않습니다.
 - assistant history와 Telecom history는 사용자 편의를 위해 로컬 on-device에 저장됩니다.
 
-## 인증 관점
+## 로컬 엔진 관점
 
-- 앱은 더 이상 사용자가 arbitrary backend URL을 입력하게 하지 않습니다.
-- 현재 UI는 공식 Codex 인증 개념(ChatGPT sign-in, API key, device-auth/headless 개념)에 맞춰 정리되어 있습니다.
-- Android 앱은 현재 `Open Codex sign-in` 진입점과 access token field를 노출하며, 구현된 handoff는 browser sign-in + manual access token paste입니다.
+- 앱은 현재 host Ollama의 `gemma3:4b`를 기본 로컬 모델로 사용합니다.
+- emulator/개발 환경에서는 `10.0.2.2:11434`를 통해 로컬 모델 서버에 접근합니다.
+- GGUF 선택 UI와 `NativeLocalLlmBridge`는 향후 on-device llama.cpp 경로를 위한 scaffold입니다.
 
 ## 알려진 아키텍처 한계
 
