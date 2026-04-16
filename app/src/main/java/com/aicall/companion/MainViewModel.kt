@@ -32,7 +32,7 @@ data class MainUiState(
     val draftCallerText: String = "",
     val latestReply: String = "",
     val latestReplySource: String = "아직 생성된 응답이 없습니다.",
-    val codexStatus: String = "Codex sign-in 후 access token을 연결하면 Codex 경로를 사용할 수 있습니다.",
+    val localStatus: String = "로컬 Gemma 모델이 준비되면 이 경로를 통해 응답을 생성합니다.",
     val hasDialerRole: Boolean,
     val canRequestDialerRole: Boolean,
     val canAnswerCalls: Boolean,
@@ -57,7 +57,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val draftCallerText = MutableStateFlow("")
     private val latestReply = MutableStateFlow("")
     private val latestReplySource = MutableStateFlow("아직 생성된 응답이 없습니다.")
-    private val codexStatus = MutableStateFlow("Codex sign-in 후 access token을 연결하면 Codex 경로를 사용할 수 있습니다.")
+    private val localStatus = MutableStateFlow("로컬 Gemma 모델이 준비되면 이 경로를 통해 응답을 생성합니다.")
     private val assistantHistory = MutableStateFlow(assistantSessionRepository.load())
 
     private val baseState = combine(
@@ -79,8 +79,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         draftCallerText,
         latestReply,
         latestReplySource,
-        codexStatus,
-    ) { base, draft, reply, source, codexMessage ->
+        localStatus,
+    ) { base, draft, reply, source, localMessage ->
         MainUiState(
             settings = base.settings,
             telecomSnapshot = base.telecomSnapshot,
@@ -88,7 +88,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             draftCallerText = if (draft.isBlank()) base.speechState.transcript else draft,
             latestReply = reply,
             latestReplySource = source,
-            codexStatus = codexMessage,
+            localStatus = localMessage,
             hasDialerRole = hasDialerRole(),
             canRequestDialerRole = canRequestDialerRole(),
             canAnswerCalls = base.telecomSnapshot.hasActiveCall,
@@ -106,10 +106,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun updateSelectedEngine(engine: AssistantEngine) {
         settingsRepository.update { it.copy(selectedEngine = engine) }
-    }
-
-    fun updateCodexAccessToken(value: String) {
-        settingsRepository.update { it.copy(codexAccessToken = value) }
     }
 
     fun updateSystemPrompt(value: String) {
@@ -131,11 +127,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 localModelLabel = label,
             )
         }
-        codexStatus.value = assistantCoordinator.getLocalEngineStatus(settingsRepository.observe().value)
+        localStatus.value = assistantCoordinator.getLocalEngineStatus(settingsRepository.observe().value)
     }
 
     fun inspectLocalEngineStatus() {
-        codexStatus.value = assistantCoordinator.getLocalEngineStatus(settingsRepository.observe().value)
+        localStatus.value = assistantCoordinator.getLocalEngineStatus(settingsRepository.observe().value)
     }
 
     fun startSpeechRecognition() {
@@ -181,7 +177,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val response = assistantCoordinator.generateReply(callerText)
             latestReply.value = response.reply
             latestReplySource.value = "응답 엔진: ${response.source}"
-            codexStatus.value = response.statusMessage
+            localStatus.value = response.statusMessage
             assistantHistory.value = assistantSessionRepository.append(
                 AssistantExchange(
                     timestampLabel = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),
